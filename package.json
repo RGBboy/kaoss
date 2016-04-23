@@ -1,0 +1,22 @@
+{
+  "name": "kaoss",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Music toy using the web audio API",
+  "author": "RGBboy",
+  "scripts": {
+    "dev": "webpack-dev-server --inline --hot --port 3000",
+    "build": "webpack",
+    "postinstall": "elm-package install -y"
+  },
+  "dependencies": {
+    "virtual-audio-graph": "^0.17.3"
+  },
+  "devDependencies": {
+    "elm-hot-loader": "0.x.x",
+    "elm-webpack-loader": "^2.0.0",
+    "file-loader": "^0.8.5",
+    "webpack": "^1.12.12",
+    "webpack-dev-server": "^1.14.1"
+  }
+}
