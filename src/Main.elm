@@ -1,24 +1,38 @@
 import Color exposing (..)
-import Graphics.Collage exposing (..)
-import Graphics.Element exposing (..)
+import Html exposing (..)
+import Html.Attributes exposing (..)
 import Mouse
 import Signal
 import Signal.Extra
 import Window
 
-view : Bool -> (Int, Int) -> Element
-view swap (w',h') =
+view : Bool -> (Int, Int) -> Html
+view swap (w', h') =
   let
-    (w,h) = (toFloat w', toFloat h')
+    (w, h) = (toString w', toString h')
+    (x, y) = (toString (toFloat (w' - 320) / 2), toString (toFloat (h' - 320) / 2))
   in
-    collage w' h'
-      [ rect w h
-          |> filled (rgb 32 32 32)
-      , rect 320 320
-          |> filled (rgb 0 0 0)
+    div
+      [ style
+          [ ("backgroundColor", "#333333")
+          , ("width", w ++ "px")
+          , ("height", h ++ "px")
+          ]
+      ]
+      [ div
+          [ style
+              [ ("backgroundColor", "#000000")
+              , ("position", "absolute")
+              , ("left", x ++ "px")
+              , ("top", y ++ "px")
+              , ("width", "320px")
+              , ("height", "320px")
+              ]
+          ]
+          []
       ]
 
-main : Signal Element
+main : Signal Html
 main =
   Signal.map2 view swap Window.dimensions
 
@@ -30,9 +44,12 @@ normalize (w', h') (x', y') =
   in
     (x / w, y / h)
 
-port output : Signal (Float, Float)
+port output : Signal (Maybe (Float, Float))
 port output =
-  -- Signal.Extra.keepWhen Mouse.isDown (0,0)
-    (Signal.map2 normalize Window.dimensions Mouse.position)
+  Signal.Extra.switchWhen
+    Mouse.isDown
+    (Signal.map Just (Signal.map2 normalize Window.dimensions Mouse.position))
+    (Signal.sampleOn Mouse.isDown (Signal.constant Nothing))
+
 
 port swap : Signal Bool

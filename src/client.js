@@ -21,8 +21,8 @@ function handleOutput (message) {
 
   console.log(message);
 
-  var x = message[0],
-      y = message[1],
+  var x = message ? message[0] : 1,
+      y = message? message[1]: 0,
       t = virtualAudioGraph.currentTime,
       graph = {
     0: [
