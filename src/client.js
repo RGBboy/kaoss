@@ -25,8 +25,9 @@ function handleOutput (message) {
 
   console.log(message);
 
-  var x = message ? Math.ceil(message[0] * 12) : 1,
-      y = message? message[1]: 0,
+  var isDown = message[0],
+      x = Math.ceil(message[1] * 12),
+      y = isDown ? message[2] : 0,
       t = virtualAudioGraph.currentTime,
       graph = {
     0: [
