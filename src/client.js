@@ -7,28 +7,44 @@ var Elm = require('./Main.elm'),
     document = global.document,
     element = document.getElementById('mount'),
     app = Elm.embed(Elm.Main, element, { swap: false }),
+    started = false,
     audioContext,
-    virtualAudioGraph;
-
-audioContext = new AudioContext();
-
-virtualAudioGraph = createVirtualAudioGraph({
-  audioContext,
-  output: audioContext.destination,
-});
+    virtualAudioGraph,
+    AudioContext = window.AudioContext || window.webkitAudioContext;
 
 function frequencyRatio (x) {
   return Math.pow(Math.pow(2, x), 1/12)
+}
+
+window.addEventListener('touchend', start);
+window.addEventListener('touchstart', function (event) {
+  event.preventDefault();
+});
+
+function start (event) {
+  event.preventDefault();
+  if (!started) {
+    started = true;
+    audioContext = new AudioContext();
+    virtualAudioGraph = createVirtualAudioGraph({
+      audioContext,
+      output: audioContext.destination
+    });
+  };
+  window.removeEventListener('touchend', start);
 }
 
 function handleOutput (message) {
 
   console.log(message);
 
+  if (!started) {
+    return;
+  };
+
   var isDown = message[0],
       x = Math.ceil(message[1] * 12),
       y = isDown ? message[2] : 0,
-      t = virtualAudioGraph.currentTime,
       graph = {
     0: [
       'gain',
@@ -56,7 +72,7 @@ function handleOutput (message) {
     ]
   };
 
-  virtualAudioGraph.update(graph)
+  virtualAudioGraph.update(graph);
 
 };
 

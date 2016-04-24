@@ -5,7 +5,7 @@
   "description": "Music toy using the web audio API",
   "author": "RGBboy",
   "scripts": {
-    "dev": "webpack-dev-server --inline --hot --port 3000",
+    "dev": "webpack-dev-server --inline --host 0.0.0.0 --port 8080",
     "build": "webpack",
     "postinstall": "elm-package install -y"
   },
