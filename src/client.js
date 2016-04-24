@@ -17,11 +17,15 @@ virtualAudioGraph = createVirtualAudioGraph({
   output: audioContext.destination,
 });
 
+function frequencyRatio (x) {
+  return Math.pow(Math.pow(2, x), 1/12)
+}
+
 function handleOutput (message) {
 
   console.log(message);
 
-  var x = message ? message[0] : 1,
+  var x = message ? Math.ceil(message[0] * 12) : 1,
       y = message? message[1]: 0,
       t = virtualAudioGraph.currentTime,
       graph = {
@@ -37,7 +41,7 @@ function handleOutput (message) {
       0,
       {
         type: 'square',
-        frequency: 440 + (x * 440)
+        frequency: 110 * frequencyRatio(x)
       }
     ],
     2: [
@@ -45,7 +49,7 @@ function handleOutput (message) {
       0,
       {
         type: 'sawtooth',
-        frequency: 660,
+        frequency: 110 * frequencyRatio(x + 7),
         detune: 4
       }
     ]
