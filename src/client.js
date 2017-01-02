@@ -6,7 +6,7 @@ var Elm = require('./Main.elm'),
     createVirtualAudioGraph = require('virtual-audio-graph'),
     document = global.document,
     element = document.getElementById('mount'),
-    app = Elm.embed(Elm.Main, element, { swap: false }),
+    app = Elm.Main.embed(element),
     started = false,
     audioContext,
     virtualAudioGraph,
@@ -21,8 +21,7 @@ window.addEventListener('touchstart', function (event) {
   event.preventDefault();
 });
 
-function start (event) {
-  event.preventDefault();
+function setup () {
   if (!started) {
     started = true;
     audioContext = new AudioContext();
@@ -31,6 +30,11 @@ function start (event) {
       output: audioContext.destination
     });
   };
+}
+
+function start (event) {
+  event.preventDefault();
+  setup();
   window.removeEventListener('touchend', start);
 }
 
@@ -39,6 +43,7 @@ function handleOutput (message) {
   console.log(message);
 
   if (!started) {
+    setup();
     return;
   };
 

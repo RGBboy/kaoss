@@ -1,15 +1,33 @@
+port module Main exposing (..)
+
 import Color exposing (..)
+
+
+-- import Signal
+-- import Signal.Extra
+import Time
+-- import Touch exposing (Touch)
+
 import Html exposing (..)
 import Html.Attributes as A
 import Html.Events as Events
+
 import Mouse
-import Signal
-import Signal.Extra
-import Time
-import Touch exposing (Touch)
 import Window
 
-import Debug
+
+port output : Output -> Cmd msg
+
+main : Program Never Model Msg
+main =
+  Html.program
+    { init = init
+    , view = view
+    , update = update
+    , subscriptions = subscriptions
+    }
+
+
 
 type alias Model =
   { active: Bool
@@ -17,12 +35,17 @@ type alias Model =
   , dimensions: (Int, Int)
   }
 
-init : Model
+init : (Model, Cmd msg)
 init =
-  { active = False
-  , position = (0, 0)
-  , dimensions = (320, 320)
-  }
+  ( { active = False
+    , position = (0, 0)
+    , dimensions = (320, 320)
+    }
+  , Cmd.none
+  )
+
+
+
 
 type alias Output = (Bool, Float, Float)
 
@@ -30,39 +53,61 @@ toOutput : Model -> Output
 toOutput { active, position, dimensions } =
   let
     (x, y) = normalize position dimensions
-    active' = (active && x < 1 && x > 0 && y < 1 && y > 0)
+    isActive = (active && x < 1 && x > 0 && y < 1 && y > 0)
   in
-    (active', x, y)
+    (isActive, x, y)
 
-type Action
+
+
+type Msg
   = Active Bool
-  | Position (Int, Int)
-  | Resize (Int, Int)
+  | Position Mouse.Position
+  | Resize Window.Size
 
 normalize : (Int, Int) -> (Int, Int) -> (Float, Float)
-normalize (x', y') (w', h') =
+normalize (xInt, yInt) (wInt, hInt) =
   let
-    (w, h) = (toFloat w', toFloat h')
+    (w, h) = (toFloat wInt, toFloat hInt)
     (ox, oy) = ((w - 320) / 2, (h - 320) / 2)
-    (x, y) = (toFloat x', toFloat y')
+    (x, y) = (toFloat xInt, toFloat yInt)
   in
     ((x - ox) / 320, (y - oy) / 320)
 
-update : Action -> Model -> Model
-update action { active, position, dimensions } =
-  case action of
-    Active v ->
-      Model v position dimensions
-    Position v ->
-      Model active v dimensions
-    Resize v ->
-      Model active position v
 
-view : Bool -> (Int, Int) -> Html
-view swap (w', h') =
+
+update : Msg -> Model -> (Model, Cmd msg)
+update message { active, position, dimensions } =
+  case message of
+    Active v ->
+      let
+        model = Model v position dimensions
+      in
+        ( model
+        , output (toOutput model)
+        )
+    Position { x, y } ->
+      let
+        model = Model active (x, y) dimensions
+      in
+        ( model
+        , output (toOutput model)
+        )
+    Resize { width, height } ->
+      let
+        model = Model active position (width, height)
+      in
+        ( model
+        , output (toOutput model)
+        )
+
+
+
+view : Model -> Html Msg
+view { dimensions } =
   let
-    (w, h) = (toString w', toString h')
-    (x, y) = (toString (toFloat (w' - 320) / 2), toString (toFloat (h' - 320) / 2))
+    (width, height) = dimensions
+    (w, h) = (toString width, toString height)
+    (x, y) = (toString (toFloat (width - 320) / 2), toString (toFloat (height - 320) / 2))
   in
     div
       [ A.style
@@ -84,58 +129,60 @@ view swap (w', h') =
           []
       ]
 
-touchToActive : (List Touch) -> Action
-touchToActive touches =
-  case touches of
-    hd :: tl -> Active True
-    [] -> Active False
+-- touchToActive : (List Touch) -> Action
+-- touchToActive touches =
+--   case touches of
+--     hd :: tl -> Active True
+--     [] -> Active False
+--
+-- touchToPosition : (List Touch) -> Action
+-- touchToPosition touches =
+--   case touches of
+--     hd :: tl -> Position (hd.x, hd.y)
+--     [] -> Position (0, 0)
 
-touchToPosition : (List Touch) -> Action
-touchToPosition touches =
-  case touches of
-    hd :: tl -> Position (hd.x, hd.y)
-    [] -> Position (0, 0)
 
-main : Signal Html
-main =
-  Signal.map2 view swap Window.dimensions
 
-resizeSignal : Signal Action
-resizeSignal =
-  Signal.map Resize Window.dimensions
 
-mouseActiveSignal : Signal Action
-mouseActiveSignal =
-  Signal.map Active Mouse.isDown
 
-mousePositionSignal : Signal Action
-mousePositionSignal =
-  Signal.map Position Mouse.position
+subscriptions : Model -> Sub Msg
+subscriptions model =
+  let
+    moves =
+      if model.active then
+        Mouse.moves Position
+      else
+        Sub.none
+  in
+    Sub.batch
+      [ Window.resizes Resize
+      , Mouse.downs (always (Active True))
+      , Mouse.ups (always (Active False))
+      , moves
+      ]
 
-touchActiveSignal : Signal Action
-touchActiveSignal =
-  Signal.map touchToActive Touch.touches
+-- mouseActiveSignal : Signal Action
+-- mouseActiveSignal =
+--   Signal.map Active Mouse.isDown
 
-touchPositionSignal : Signal Action
-touchPositionSignal =
-  Signal.map touchToPosition (Time.delay 0 Touch.touches)
+-- mousePositionSignal : Signal Action
+-- mousePositionSignal =
+--   Signal.map Position Mouse.position
 
-actionSignal : Signal Action
-actionSignal =
-  Signal.mergeMany
-    [ resizeSignal
-    , mouseActiveSignal
-    , mousePositionSignal
-    , touchPositionSignal
-    , touchActiveSignal
-    ]
+-- touchActiveSignal : Signal Action
+-- touchActiveSignal =
+--   Signal.map touchToActive Touch.touches
+--
+-- touchPositionSignal : Signal Action
+-- touchPositionSignal =
+--   Signal.map touchToPosition (Time.delay 0 Touch.touches)
 
-loop : Signal Model
-loop =
-  Signal.Extra.foldp' update (\action -> update action init) actionSignal
-
-port output : Signal Output
-port output =
-  Signal.map toOutput loop
-
-port swap : Signal Bool
+-- actionSignal : Signal Action
+-- actionSignal =
+--   Signal.mergeMany
+--     [ resizeSignal
+--     , mouseActiveSignal
+--     , mousePositionSignal
+--     , touchPositionSignal
+--     , touchActiveSignal
+--     ]

@@ -13,8 +13,9 @@
     "virtual-audio-graph": "^0.17.3"
   },
   "devDependencies": {
-    "elm-hot-loader": "0.x.x",
-    "elm-webpack-loader": "^2.0.0",
+    "elm": "^0.18.0",
+    "elm-hot-loader": "^0.5.4",
+    "elm-webpack-loader": "^4.1.1",
     "file-loader": "^0.8.5",
     "webpack": "^1.12.12",
     "webpack-dev-server": "^1.14.1"
