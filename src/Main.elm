@@ -39,10 +39,39 @@ toOutput { active, position, dimensions } =
 
 -- MODEL
 
+type NodeType
+  = OscillatorNode
+  | GainNode
+
+type Destination
+  = Output
+  | String
+
+type AudioProperty
+  = WaveType Wave
+  | Frequency Float
+  | Gain Float
+  | Detune Int
+
+type Wave
+  = Sine
+  | Square
+  | Sawtooth
+
+type alias Node =
+  { id : String
+  , nodeType : NodeType
+  , destination : Destination
+  , properties : List AudioProperty
+  }
+
+type alias Graph = List Node
+
 type alias Model =
   { active : Bool
   , position : (Int, Int)
   , dimensions : (Int, Int)
+  , graph : Graph
   }
 
 init : (Model, Cmd msg)
@@ -50,6 +79,7 @@ init =
   ( { active = False
     , position = (0, 0)
     , dimensions = (320, 320)
+    , graph = []
     }
   , Cmd.none
   )
@@ -75,28 +105,28 @@ normalize (xInt, yInt) (wInt, hInt) =
 
 
 update : Msg -> Model -> (Model, Cmd msg)
-update message { active, position, dimensions } =
+update message ({ active, position, dimensions } as model) =
   case message of
     Active v ->
       let
-        model = Model v position dimensions
+        newModel = { model | active = v }
       in
-        ( model
-        , output (toOutput model)
+        ( newModel
+        , output (toOutput newModel)
         )
     Position { x, y } ->
       let
-        model = Model active (x, y) dimensions
+        newModel = { model | position = (x, y) }
       in
-        ( model
-        , output (toOutput model)
+        ( newModel
+        , output (toOutput newModel)
         )
     Resize { width, height } ->
       let
-        model = Model active position (width, height)
+        newModel = { model | dimensions = (width, height) }
       in
-        ( model
-        , output (toOutput model)
+        ( newModel
+        , output (toOutput newModel)
         )
 
 
