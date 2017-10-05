@@ -4,6 +4,7 @@ import Color exposing (Color)
 import Html as H exposing (Html)
 import Html.Attributes as A
 import Html.Events as Events
+import Json.Encode as Encode
 import Mouse
 import Time
 import Window
@@ -45,7 +46,7 @@ type NodeType
 
 type Destination
   = Output
-  | String
+  | Connect String
 
 type AudioProperty
   = WaveType Wave
@@ -58,20 +59,20 @@ type Wave
   | Square
   | Sawtooth
 
-type alias Node =
-  { id : String
-  , nodeType : NodeType
+type alias AudioNode =
+  { nodeType : NodeType
+  , id : String
   , destination : Destination
   , properties : List AudioProperty
   }
 
-type alias Graph = List Node
+type alias AudioGraph = List AudioNode
 
 type alias Model =
   { active : Bool
   , position : (Int, Int)
   , dimensions : (Int, Int)
-  , graph : Graph
+  , graph : AudioGraph
   }
 
 init : (Model, Cmd msg)
@@ -83,6 +84,75 @@ init =
     }
   , Cmd.none
   )
+
+audioNode : NodeType -> String -> Destination -> List AudioProperty -> AudioNode
+audioNode = AudioNode
+
+oscillator : String -> Destination -> List AudioProperty -> AudioNode
+oscillator = AudioNode OscillatorNode
+
+gain : String -> Destination -> List AudioProperty -> AudioNode
+gain = AudioNode GainNode
+
+graph : Float -> Float -> AudioGraph
+graph g f =
+  [ gain "0" Output [ Gain (g * g) ]
+  , oscillator "1" (Connect "0")
+      [ WaveType Square
+      , frequencyRatio f |> (*) 110 |> Frequency
+      ]
+  , oscillator "2" (Connect "0")
+      [ WaveType Sawtooth
+      , f + 7 |> frequencyRatio |> (*) 110 |> Frequency
+      , Detune 4
+      ]
+  ]
+
+frequencyRatio : Float -> Float
+frequencyRatio value =
+  (2 ^ value) ^ (1 / 12)
+
+
+encodeNodeType : NodeType -> Encode.Value
+encodeNodeType nodeType =
+  case nodeType of
+    OscillatorNode -> Encode.string "oscillator"
+    GainNode -> Encode.string "gain"
+
+encodeDestination : Destination -> Encode.Value
+encodeDestination destination =
+  case destination of
+    Output -> Encode.string "output"
+    Connect id -> Encode.string id
+
+encodeAudioProperty : AudioProperty -> (String, Encode.Value)
+encodeAudioProperty property =
+  case property of
+    WaveType value -> ("type", encodeWave value)
+    Frequency value -> ("frequency", Encode.float value)
+    Gain value -> ("gain", Encode.float value)
+    Detune value -> ("detune", Encode.int value)
+
+encodeWave : Wave -> Encode.Value
+encodeWave wave =
+  case wave of
+    Sine -> Encode.string "sine"
+    Square -> Encode.string "square"
+    Sawtooth -> Encode.string "sawtooth"
+
+encodeNode : AudioNode -> (String, Encode.Value)
+encodeNode node =
+  ( node.id
+  , Encode.list
+      [ encodeNodeType node.nodeType
+      , encodeDestination node.destination
+      , List.map encodeAudioProperty node.properties |> Encode.object
+      ]
+  )
+
+encodeGraph : AudioGraph -> Encode.Value
+encodeGraph graph =
+  List.map encodeNode graph |> Encode.object
 
 
 
