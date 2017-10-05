@@ -48,9 +48,9 @@ toOutput { active, position, dimensions } =
 -- MODEL
 
 type alias Model =
-  { active: Bool
-  , position: (Int, Int)
-  , dimensions: (Int, Int)
+  { active : Bool
+  , position : (Int, Int)
+  , dimensions : (Int, Int)
   }
 
 init : (Model, Cmd msg)
