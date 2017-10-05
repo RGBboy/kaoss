@@ -1,20 +1,12 @@
 port module Main exposing (..)
 
 import Color exposing (Color)
-
-
-
-
 import Html as H exposing (Html)
 import Html.Attributes as A
 import Html.Events as Events
 import Mouse
 import Time
 import Window
-
-
-
-
 
 
 
