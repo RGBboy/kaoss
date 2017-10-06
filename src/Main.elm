@@ -3,10 +3,12 @@ port module Main exposing (..)
 import Color exposing (Color)
 import Html as H exposing (Html)
 import Html.Attributes as A
-import Html.Events as Events
+import Html.Events as E
 import Json.Encode as Encode
 import Mouse
+import SingleTouch
 import Time
+import Touch
 import Window
 
 
@@ -56,8 +58,13 @@ type alias AudioNode =
 
 type alias AudioGraph = List AudioNode
 
+type State
+  = Idle
+  | Playing
+
 type alias Model =
-  { isActive : Bool
+  { state : State
+  , isActive : Bool
   , position : (Float, Float)
   , dimensions : (Float, Float)
   , graph : AudioGraph
@@ -65,7 +72,8 @@ type alias Model =
 
 init : (Model, Cmd msg)
 init =
-  ( { isActive = False
+  ( { state = Idle
+    , isActive = False
     , position = (0, 0)
     , dimensions = (320, 320)
     , graph = []
@@ -123,13 +131,21 @@ encodeGraph : AudioGraph -> Encode.Value
 encodeGraph graph =
   List.map encodeNode graph |> Encode.object
 
+outputType : String -> Encode.Value -> Encode.Value
+outputType kind data =
+  [ ("type", Encode.string kind)
+  , ("data", data)
+  ]
+    |> Encode.object
+
 
 
 -- UPDATE
 
 type Msg
-  = Active Bool
-  | Position Mouse.Position
+  = Start
+  | Active Bool
+  | Position (Float, Float)
   | Resize Window.Size
 
 normalize : (Float, Float) -> (Float, Float) -> (Float, Float)
@@ -178,6 +194,10 @@ createGraph isActive dimensions position =
 update : Msg -> Model -> (Model, Cmd msg)
 update message ({ isActive, position, dimensions } as model) =
   case message of
+    Start ->
+      ( { model | state = Playing }
+      , outputType "init" Encode.null |> output
+      )
     Active isActive ->
       let
         newModel =
@@ -187,11 +207,10 @@ update message ({ isActive, position, dimensions } as model) =
           }
       in
         ( newModel
-        , encodeGraph newModel.graph |> output
+        , encodeGraph newModel.graph |> outputType "update" |> output
         )
-    Position { x, y } ->
+    Position position ->
       let
-        position = (toFloat x, toFloat y)
         newModel =
           { model
           | position = position
@@ -199,7 +218,7 @@ update message ({ isActive, position, dimensions } as model) =
           }
       in
         ( newModel
-        , encodeGraph newModel.graph |> output
+        , encodeGraph newModel.graph |> outputType "update" |> output
         )
     Resize { width, height } ->
       let
@@ -211,56 +230,83 @@ update message ({ isActive, position, dimensions } as model) =
           }
       in
         ( newModel
-        , encodeGraph newModel.graph |> output
+        , encodeGraph newModel.graph |> outputType "update" |> output
         )
 
 
 
 -- SUBSCRIPTIONS
 
+tupleFromXY : { x : number, y : number } -> (number, number)
+tupleFromXY { x, y } =
+  (x, y)
+
+intToFloat : (Int, Int) -> (Float, Float)
+intToFloat (x, y) =
+  (toFloat x, toFloat y)
+
 subscriptions : Model -> Sub Msg
 subscriptions model =
-  let
-    moves =
-      if model.isActive then
-        Mouse.moves Position
-      else
-        Sub.none
-  in
-    Sub.batch
-      [ Window.resizes Resize
-      , Mouse.downs (always (Active True))
-      , Mouse.ups (always (Active False))
-      , moves
-      ]
+  case model.state of
+    Idle ->
+      Window.resizes Resize
+    Playing ->
+      let
+        moves =
+          if model.isActive then
+            Mouse.moves (tupleFromXY >> intToFloat >> Position)
+          else
+            Sub.none
+      in
+        Sub.batch
+          [ Window.resizes Resize
+          , Mouse.downs (always (Active True))
+          , Mouse.ups (always (Active False))
+          , moves
+          ]
 
 
 
 -- VIEW
 
 view : Model -> Html Msg
-view { dimensions } =
+view { state, isActive, dimensions } =
   let
     (width, height) = dimensions
     (w, h) = (toString width, toString height)
     (x, y) = (toString ((width - 320) / 2), toString ((height - 320) / 2))
+    color =
+      case isActive of
+        True -> "#333333"
+        False -> "#000000"
   in
-    H.div
-      [ A.style
-          [ ("backgroundColor", "#333333")
-          , ("width", w ++ "px")
-          , ("height", h ++ "px")
+    case state of
+      Idle ->
+        H.button
+          [ E.onClick Start
           ]
-      ]
-      [ H.div
+          [ H.text "Start" ]
+      _ ->
+        H.div
           [ A.style
-              [ ("backgroundColor", "#000000")
-              , ("position", "absolute")
-              , ("left", x ++ "px")
-              , ("top", y ++ "px")
-              , ("width", "320px")
-              , ("height", "320px")
+              [ ("backgroundColor", "#333333")
+              , ("width", w ++ "px")
+              , ("height", h ++ "px")
               ]
           ]
-          []
-      ]
+          [ H.div
+              [ A.style
+                  [ ("backgroundColor", color)
+                  , ("position", "absolute")
+                  , ("left", x ++ "px")
+                  , ("top", y ++ "px")
+                  , ("width", "320px")
+                  , ("height", "320px")
+                  ]
+              , SingleTouch.onStart (always (Active True))
+              , SingleTouch.onEnd (always (Active False))
+              , SingleTouch.onCancel (always (Active False))
+              , SingleTouch.onMove (Touch.clientPos >> Position)
+              ]
+              []
+          ]

@@ -12,40 +12,25 @@ var Elm = require('./Main.elm'),
     virtualAudioGraph,
     AudioContext = window.AudioContext || window.webkitAudioContext;
 
-function frequencyRatio (x) {
-  return Math.pow(Math.pow(2, x), 1/12)
-}
-
-window.addEventListener('touchend', start);
-window.addEventListener('touchstart', function (event) {
-  event.preventDefault();
-});
-
-function setup () {
-  if (!started) {
-    started = true;
-    audioContext = new AudioContext();
-    virtualAudioGraph = createVirtualAudioGraph({
-      audioContext,
-      output: audioContext.destination
-    });
-  };
-}
-
-function start (event) {
-  event.preventDefault();
-  setup();
-  window.removeEventListener('touchend', start);
-}
-
-function handleOutput (graph) {
-
-  if (!started) {
-    setup();
-    return;
-  };
-
-  virtualAudioGraph.update(graph);
+function handleOutput (message) {
+  switch (message.type) {
+    case 'init':
+      console.log('init');
+      audioContext = new AudioContext();
+      virtualAudioGraph = createVirtualAudioGraph({
+        audioContext,
+        output: audioContext.destination
+      });
+      // must start with something for mobile
+      virtualAudioGraph.update({
+        0: ['gain', 'output', { gain: 0.001 }]
+      });
+    break;
+    case 'update':
+      console.log('update', message.data);
+      virtualAudioGraph.update(message.data);
+    break;
+  }
 
 };
 

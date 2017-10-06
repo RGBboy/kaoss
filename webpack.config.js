@@ -29,6 +29,7 @@ module.exports = {
   },
 
   devServer: {
-    stats: 'errors-only'
+    stats: 'errors-only',
+    disableHostCheck: true
   }
 };
