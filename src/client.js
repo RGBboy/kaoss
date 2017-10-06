@@ -38,43 +38,11 @@ function start (event) {
   window.removeEventListener('touchend', start);
 }
 
-function handleOutput (message) {
-
-  console.log(message);
+function handleOutput (graph) {
 
   if (!started) {
     setup();
     return;
-  };
-
-  var isDown = message[0],
-      x = Math.ceil(message[1] * 12),
-      y = isDown ? message[2] : 0,
-      graph = {
-    0: [
-      'gain',
-      'output',
-      {
-        gain: y * y
-      }
-    ],
-    1: [
-      'oscillator',
-      0,
-      {
-        type: 'square',
-        frequency: 110 * frequencyRatio(x)
-      }
-    ],
-    2: [
-      'oscillator',
-      0,
-      {
-        type: 'sawtooth',
-        frequency: 110 * frequencyRatio(x + 7),
-        detune: 4
-      }
-    ]
   };
 
   virtualAudioGraph.update(graph);

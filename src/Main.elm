@@ -24,19 +24,7 @@ main =
 
 -- PORTS
 
-port output : Output -> Cmd msg
-
-type alias Output = (Bool, Float, Float)
-
-toOutput : Model -> Output
-toOutput { active, position, dimensions } =
-  let
-    (x, y) = normalize position dimensions
-    isActive = (active && x < 1 && x > 0 && y < 1 && y > 0)
-  in
-    (isActive, x, y)
-
-
+port output : Encode.Value -> Cmd msg
 
 -- MODEL
 
@@ -69,15 +57,15 @@ type alias AudioNode =
 type alias AudioGraph = List AudioNode
 
 type alias Model =
-  { active : Bool
-  , position : (Int, Int)
-  , dimensions : (Int, Int)
+  { isActive : Bool
+  , position : (Float, Float)
+  , dimensions : (Float, Float)
   , graph : AudioGraph
   }
 
 init : (Model, Cmd msg)
 init =
-  ( { active = False
+  ( { isActive = False
     , position = (0, 0)
     , dimensions = (320, 320)
     , graph = []
@@ -93,25 +81,6 @@ oscillator = AudioNode OscillatorNode
 
 gain : String -> Destination -> List AudioProperty -> AudioNode
 gain = AudioNode GainNode
-
-graph : Float -> Float -> AudioGraph
-graph g f =
-  [ gain "0" Output [ Gain (g * g) ]
-  , oscillator "1" (Connect "0")
-      [ WaveType Square
-      , frequencyRatio f |> (*) 110 |> Frequency
-      ]
-  , oscillator "2" (Connect "0")
-      [ WaveType Sawtooth
-      , f + 7 |> frequencyRatio |> (*) 110 |> Frequency
-      , Detune 4
-      ]
-  ]
-
-frequencyRatio : Float -> Float
-frequencyRatio value =
-  (2 ^ value) ^ (1 / 12)
-
 
 encodeNodeType : NodeType -> Encode.Value
 encodeNodeType nodeType =
@@ -163,40 +132,86 @@ type Msg
   | Position Mouse.Position
   | Resize Window.Size
 
-normalize : (Int, Int) -> (Int, Int) -> (Float, Float)
-normalize (xInt, yInt) (wInt, hInt) =
-  let
-    (w, h) = (toFloat wInt, toFloat hInt)
-    (ox, oy) = ((w - 320) / 2, (h - 320) / 2)
-    (x, y) = (toFloat xInt, toFloat yInt)
-  in
-    ((x - ox) / 320, (y - oy) / 320)
+normalize : (Float, Float) -> (Float, Float) -> (Float, Float)
+normalize (aX, aY) (bX, bY) =
+  (aX / bX, aY / bY)
 
+scale : number -> (number, number) -> (number, number)
+scale factor (x, y) =
+  (x * factor, y * factor)
 
+clamp : (number, number) -> (number, number) -> (number, number) -> (number, number)
+clamp (minX, minY) (maxX, maxY) (x, y) =
+  (Basics.clamp minX maxX x, Basics.clamp minY maxY y)
+
+boolToFloat : Bool -> number
+boolToFloat value =
+  case value of
+    True -> 1
+    False -> 0
+
+frequencyRatio : Float -> Float
+frequencyRatio value =
+  (2 ^ value) ^ (1 / 12)
+
+graph : Float -> Float -> AudioGraph
+graph g f =
+  [ gain "0" Output [ Gain (g * g * 0.5) ]
+  , oscillator "1" (Connect "0")
+      [ WaveType Square
+      , frequencyRatio f |> (*) 110 |> Frequency
+      ]
+  , oscillator "2" (Connect "0")
+      [ WaveType Square
+      , f + 7 |> frequencyRatio |> (*) 110 |> Frequency
+      , Detune 4
+      ]
+  ]
+
+createGraph : Bool -> (Float, Float) -> (Float, Float) -> AudioGraph
+createGraph isActive dimensions position =
+  normalize position dimensions
+    |> clamp (0, 0) (1, 1)
+    |> scale (boolToFloat isActive)
+    |> (uncurry graph)
 
 update : Msg -> Model -> (Model, Cmd msg)
-update message ({ active, position, dimensions } as model) =
+update message ({ isActive, position, dimensions } as model) =
   case message of
-    Active v ->
+    Active isActive ->
       let
-        newModel = { model | active = v }
+        newModel =
+          { model
+          | isActive = isActive
+          , graph = createGraph isActive model.dimensions model.position
+          }
       in
         ( newModel
-        , output (toOutput newModel)
+        , encodeGraph newModel.graph |> output
         )
     Position { x, y } ->
       let
-        newModel = { model | position = (x, y) }
+        position = (toFloat x, toFloat y)
+        newModel =
+          { model
+          | position = position
+          , graph = createGraph model.isActive model.dimensions position
+          }
       in
         ( newModel
-        , output (toOutput newModel)
+        , encodeGraph newModel.graph |> output
         )
     Resize { width, height } ->
       let
-        newModel = { model | dimensions = (width, height) }
+        dimensions = (toFloat width, toFloat height)
+        newModel =
+          { model
+          | dimensions = dimensions
+          , graph = createGraph model.isActive dimensions model.position
+          }
       in
         ( newModel
-        , output (toOutput newModel)
+        , encodeGraph newModel.graph |> output
         )
 
 
@@ -207,7 +222,7 @@ subscriptions : Model -> Sub Msg
 subscriptions model =
   let
     moves =
-      if model.active then
+      if model.isActive then
         Mouse.moves Position
       else
         Sub.none
@@ -228,7 +243,7 @@ view { dimensions } =
   let
     (width, height) = dimensions
     (w, h) = (toString width, toString height)
-    (x, y) = (toString (toFloat (width - 320) / 2), toString (toFloat (height - 320) / 2))
+    (x, y) = (toString ((width - 320) / 2), toString ((height - 320) / 2))
   in
     H.div
       [ A.style
