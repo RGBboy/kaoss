@@ -5,7 +5,7 @@ import Html as H exposing (Html)
 import Html.Attributes as A
 import Html.Events as E
 import Json.Encode as Encode
-import Mouse
+import MouseEvents as Mouse
 import SingleTouch
 import Time
 import Touch
@@ -142,6 +142,7 @@ outputType kind data =
 
 -- UPDATE
 
+-- Can remodel this to remove active and have Maybe (Float, Float) for position
 type Msg
   = Start
   | Active Bool
@@ -247,23 +248,7 @@ intToFloat (x, y) =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-  case model.state of
-    Idle ->
-      Window.resizes Resize
-    Playing ->
-      let
-        moves =
-          if model.isActive then
-            Mouse.moves (tupleFromXY >> intToFloat >> Position)
-          else
-            Sub.none
-      in
-        Sub.batch
-          [ Window.resizes Resize
-          , Mouse.downs (always (Active True))
-          , Mouse.ups (always (Active False))
-          , moves
-          ]
+  Window.resizes Resize
 
 
 
@@ -274,7 +259,6 @@ view { state, isActive, dimensions } =
   let
     (width, height) = dimensions
     (w, h) = (toString width, toString height)
-    (x, y) = (toString ((width - 320) / 2), toString ((height - 320) / 2))
     color =
       case isActive of
         True -> "#333333"
@@ -292,17 +276,19 @@ view { state, isActive, dimensions } =
               [ ("backgroundColor", "#333333")
               , ("width", w ++ "px")
               , ("height", h ++ "px")
+              , ("margin", "0px auto")
               ]
           ]
           [ H.div
               [ A.style
                   [ ("backgroundColor", color)
-                  , ("position", "absolute")
-                  , ("left", x ++ "px")
-                  , ("top", y ++ "px")
-                  , ("width", "320px")
-                  , ("height", "320px")
+                  , ("width", "100%")
+                  , ("height", "100%")
                   ]
+              , Mouse.onMouseDown (always <| Active True)
+              , Mouse.onMouseUp (always <| Active False)
+              , Mouse.onMouseOut (always <| Active False)
+              , Mouse.onMouseMove (Mouse.relPos >> tupleFromXY >> intToFloat >> Position)
               , SingleTouch.onStart (always (Active True))
               , SingleTouch.onEnd (always (Active False))
               , SingleTouch.onCancel (always (Active False))
