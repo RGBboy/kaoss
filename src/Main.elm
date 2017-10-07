@@ -1,5 +1,6 @@
 port module Main exposing (..)
 
+import AudioGraph exposing (AudioGraph)
 import Color exposing (Color)
 import Html as H exposing (Html)
 import Html.Attributes as A
@@ -30,34 +31,6 @@ port output : Encode.Value -> Cmd msg
 
 -- MODEL
 
-type NodeType
-  = OscillatorNode
-  | GainNode
-
-type Destination
-  = Output
-  | Connect String
-
-type AudioProperty
-  = WaveType Wave
-  | Frequency Float
-  | Gain Float
-  | Detune Int
-
-type Wave
-  = Sine
-  | Square
-  | Sawtooth
-
-type alias AudioNode =
-  { nodeType : NodeType
-  , id : String
-  , destination : Destination
-  , properties : List AudioProperty
-  }
-
-type alias AudioGraph = List AudioNode
-
 type State
   = Idle
   | Playing
@@ -80,56 +53,6 @@ init =
     }
   , Cmd.none
   )
-
-audioNode : NodeType -> String -> Destination -> List AudioProperty -> AudioNode
-audioNode = AudioNode
-
-oscillator : String -> Destination -> List AudioProperty -> AudioNode
-oscillator = AudioNode OscillatorNode
-
-gain : String -> Destination -> List AudioProperty -> AudioNode
-gain = AudioNode GainNode
-
-encodeNodeType : NodeType -> Encode.Value
-encodeNodeType nodeType =
-  case nodeType of
-    OscillatorNode -> Encode.string "oscillator"
-    GainNode -> Encode.string "gain"
-
-encodeDestination : Destination -> Encode.Value
-encodeDestination destination =
-  case destination of
-    Output -> Encode.string "output"
-    Connect id -> Encode.string id
-
-encodeAudioProperty : AudioProperty -> (String, Encode.Value)
-encodeAudioProperty property =
-  case property of
-    WaveType value -> ("type", encodeWave value)
-    Frequency value -> ("frequency", Encode.float value)
-    Gain value -> ("gain", Encode.float value)
-    Detune value -> ("detune", Encode.int value)
-
-encodeWave : Wave -> Encode.Value
-encodeWave wave =
-  case wave of
-    Sine -> Encode.string "sine"
-    Square -> Encode.string "square"
-    Sawtooth -> Encode.string "sawtooth"
-
-encodeNode : AudioNode -> (String, Encode.Value)
-encodeNode node =
-  ( node.id
-  , Encode.list
-      [ encodeNodeType node.nodeType
-      , encodeDestination node.destination
-      , List.map encodeAudioProperty node.properties |> Encode.object
-      ]
-  )
-
-encodeGraph : AudioGraph -> Encode.Value
-encodeGraph graph =
-  List.map encodeNode graph |> Encode.object
 
 outputType : String -> Encode.Value -> Encode.Value
 outputType kind data =
@@ -173,15 +96,16 @@ frequencyRatio value =
 
 graph : Float -> Float -> AudioGraph
 graph g f =
-  [ gain "0" Output [ Gain (g * g * 0.5) ]
-  , oscillator "1" (Connect "0")
-      [ WaveType Square
-      , frequencyRatio f |> (*) 110 |> Frequency
+  [ AudioGraph.gainNode "0" AudioGraph.output
+      [ AudioGraph.gain (g * g * 0.5) ]
+  , AudioGraph.oscillator "1" (AudioGraph.connectTo "0")
+      [ AudioGraph.squareWave
+      , frequencyRatio f |> (*) 110 |> AudioGraph.frequency
       ]
-  , oscillator "2" (Connect "0")
-      [ WaveType Square
-      , f + 7 |> frequencyRatio |> (*) 110 |> Frequency
-      , Detune 4
+  , AudioGraph.oscillator "2" (AudioGraph.connectTo "0")
+      [ AudioGraph.squareWave
+      , f + 7 |> frequencyRatio |> (*) 110 |> AudioGraph.frequency
+      , AudioGraph.detune 4
       ]
   ]
 
@@ -208,7 +132,7 @@ update message ({ isActive, position, dimensions } as model) =
           }
       in
         ( newModel
-        , encodeGraph newModel.graph |> outputType "update" |> output
+        , AudioGraph.encode newModel.graph |> outputType "update" |> output
         )
     Position position ->
       let
@@ -219,7 +143,7 @@ update message ({ isActive, position, dimensions } as model) =
           }
       in
         ( newModel
-        , encodeGraph newModel.graph |> outputType "update" |> output
+        , AudioGraph.encode newModel.graph |> outputType "update" |> output
         )
     Resize { width, height } ->
       let
@@ -231,7 +155,7 @@ update message ({ isActive, position, dimensions } as model) =
           }
       in
         ( newModel
-        , encodeGraph newModel.graph |> outputType "update" |> output
+        , AudioGraph.encode newModel.graph |> outputType "update" |> output
         )
 
 
