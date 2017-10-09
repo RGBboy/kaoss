@@ -3,6 +3,7 @@ module AudioGraph exposing
   , audioGraph
   , audioNode
   , oscillator, gainNode
+  , Destination
   , connectTo, output
   , AudioProperty
   , sineWave, squareWave, sawtoothWave
