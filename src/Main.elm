@@ -5,6 +5,7 @@ import Html as H exposing (Html)
 import Html.Events as E
 import Json.Encode as Encode
 import Kaoss
+import Sequencer
 
 
 
@@ -34,12 +35,14 @@ type State
 type alias Model =
   { state : State
   , kaoss : Kaoss.Model
+  , sequencer : Sequencer.Model
   }
 
 init : (Model, Cmd msg)
 init =
   ( { state = Idle
     , kaoss = Kaoss.init (320, 320)
+    , sequencer = Sequencer.init
     }
   , Cmd.none
   )
@@ -58,6 +61,7 @@ outputType kind data =
 type Msg
   = Start
   | KaossMessage Kaoss.Msg
+  | SequencerMessage Sequencer.Msg
 
 update : Msg -> Model -> (Model, Cmd msg)
 update message model =
@@ -73,6 +77,14 @@ update message model =
         ( newModel
         , graph newModel |> AudioGraph.encode |> outputType "update" |> output
         )
+    SequencerMessage msg ->
+      let
+        newModel = { model | sequencer = Sequencer.update msg model.sequencer }
+      in
+        ( newModel
+        , graph newModel |> AudioGraph.encode |> outputType "update" |> output
+        )
+
 
 
 
@@ -81,6 +93,8 @@ update message model =
 graph : Model -> AudioGraph
 graph model =
   Kaoss.graph "kaoss" (AudioGraph.connectTo "0") model.kaoss
+    |> List.append
+        (Sequencer.graph "sequencer" (AudioGraph.connectTo "0") model.sequencer)
     |> List.append
         [ AudioGraph.gainNode "0" AudioGraph.output
             [ AudioGraph.gain 1 ]
@@ -92,7 +106,7 @@ graph model =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-  Sub.none
+  Sub.map SequencerMessage (Sequencer.subscriptions model.sequencer)
 
 
 
@@ -107,4 +121,5 @@ view model =
         ]
         [ H.text "Start" ]
     _ ->
-      Kaoss.view model.kaoss |> H.map KaossMessage
+      -- Kaoss.view model.kaoss |> H.map KaossMessage
+      Sequencer.view model.sequencer |> H.map SequencerMessage

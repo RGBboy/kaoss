@@ -28,7 +28,9 @@ function handleOutput (message) {
     break;
     case 'update':
       console.log('update', message.data);
-      virtualAudioGraph.update(message.data);
+      if (virtualAudioGraph) {
+        virtualAudioGraph.update(message.data);
+      }
     break;
   }
 
