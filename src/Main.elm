@@ -6,7 +6,7 @@ import Html.Events as E
 import Json.Encode as Encode
 import Kaoss
 import Sequencer
-
+import TouchGroup
 
 
 main : Program Never Model Msg
@@ -34,15 +34,17 @@ type State
 
 type alias Model =
   { state : State
-  , kaoss : Kaoss.Model
-  , sequencer : Sequencer.Model
+  -- , kaoss : Kaoss.Model
+  -- , sequencer : Sequencer.Model
+  , touchGroup : TouchGroup.Model
   }
 
 init : (Model, Cmd msg)
 init =
-  ( { state = Idle
-    , kaoss = Kaoss.init (320, 320)
-    , sequencer = Sequencer.init
+  ( { state = Playing
+    -- , kaoss = Kaoss.init (320, 320)
+    -- , sequencer = Sequencer.init
+    , touchGroup = TouchGroup.init
     }
   , Cmd.none
   )
@@ -60,45 +62,57 @@ outputType kind data =
 
 type Msg
   = Start
-  | KaossMessage Kaoss.Msg
-  | SequencerMessage Sequencer.Msg
+  -- | KaossMessage Kaoss.Msg
+  -- | SequencerMessage Sequencer.Msg
+  | TouchGroupMessage TouchGroup.Msg
 
 update : Msg -> Model -> (Model, Cmd msg)
 update message model =
   case message of
     Start ->
-      ( { model | state = Playing }
-      , outputType "init" Encode.null |> output
+      let
+        newModel = { model | state = Playing }
+      in
+      ( newModel
+      , Cmd.none
+      -- , graph newModel  |> AudioGraph.encode |> outputType "init" |> output
       )
-    KaossMessage msg ->
-      let
-        newModel = { model | kaoss = Kaoss.update msg model.kaoss }
-      in
-        ( newModel
-        , graph newModel |> AudioGraph.encode |> outputType "update" |> output
-        )
-    SequencerMessage msg ->
-      let
-        newModel = { model | sequencer = Sequencer.update msg model.sequencer }
-      in
-        ( newModel
-        , graph newModel |> AudioGraph.encode |> outputType "update" |> output
-        )
-
+    -- KaossMessage msg ->
+    --   let
+    --     newModel = { model | kaoss = Kaoss.update msg model.kaoss }
+    --   in
+    --     ( newModel
+    --     , graph newModel |> AudioGraph.encode |> outputType "update" |> output
+    --     )
+    -- SequencerMessage msg ->
+    --   let
+    --     newModel = { model | sequencer = Sequencer.update msg model.sequencer }
+    --   in
+    --     ( newModel
+    --     , graph newModel |> AudioGraph.encode |> outputType "update" |> output
+    --     )
+    TouchGroupMessage msg ->
+      ( { model | touchGroup = TouchGroup.update msg model.touchGroup }
+      , Cmd.none
+      )
 
 
 
 -- GRAPH
 
-graph : Model -> AudioGraph
-graph model =
-  Kaoss.graph "kaoss" (AudioGraph.connectTo "0") model.kaoss
-    |> List.append
-        (Sequencer.graph "sequencer" (AudioGraph.connectTo "0") model.sequencer)
-    |> List.append
-        [ AudioGraph.gainNode "0" AudioGraph.output
-            [ AudioGraph.gain 1 ]
-        ]
+--
+-- graph : Model -> AudioGraph
+-- graph model =
+--   Dict.toList model.adsr
+--     |> List.concatMap adsrGraph
+--     -- |> List.append
+--     --     (Kaoss.graph "kaoss" (AudioGraph.connectTo "0") model.kaoss)
+--     -- |> List.append
+--     --     (Sequencer.graph "sequencer" (AudioGraph.connectTo "0") model.sequencer)
+--     |> List.append
+--         [ AudioGraph.gainNode "0" AudioGraph.output
+--             [ AudioGraph.gain 1 ]
+--         ]
 
 
 
@@ -106,7 +120,8 @@ graph model =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-  Sub.map SequencerMessage (Sequencer.subscriptions model.sequencer)
+  Sub.none
+  -- Sub.map SequencerMessage (Sequencer.subscriptions model.sequencer)
 
 
 
@@ -121,5 +136,6 @@ view model =
         ]
         [ H.text "Start" ]
     _ ->
+      TouchGroup.view model.touchGroup |> H.map TouchGroupMessage
       -- Kaoss.view model.kaoss |> H.map KaossMessage
-      Sequencer.view model.sequencer |> H.map SequencerMessage
+      -- Sequencer.view model.sequencer |> H.map SequencerMessage
