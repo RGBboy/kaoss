@@ -3,10 +3,10 @@ module TouchGroup exposing
   , init
   , Msg
   , update
-  , view
+  , group
+  , item
   )
 
-import Color exposing (Color)
 import Dict exposing (Dict)
 import DOM
 import Html as H exposing (Html)
@@ -19,12 +19,10 @@ import Json.Decode.Pipeline as Decode exposing (decode)
 
 -- MODEL
 
-type alias TouchItem a = (Bool, a)
+type alias Model = Dict String Bool
 
-type alias Model a = Dict String (TouchItem a)
-
-init : Dict String a -> Model a
-init = Dict.map (\ _ value -> (False, value))
+init : Model
+init = Dict.empty
 
 
 
@@ -58,33 +56,46 @@ areTouchesIntersecting : Touches -> DOM.Rectangle -> Bool
 areTouchesIntersecting touches target =
   List.foldl (isTouchIntersecting target) False touches
 
-updateItem : (b -> b) -> Touches -> DOM.Rectangle -> (Bool, b) -> (Bool, b)
-updateItem fn touches target (wasIntersecting, oldState) =
-  let
-    isIntersecting = areTouchesIntersecting touches target
-  in
-    if (wasIntersecting == isIntersecting) then
-      (wasIntersecting, oldState)
-    else
-      (isIntersecting, fn oldState)
+collectTouched : Touches -> String -> DOM.Rectangle -> Model -> Model
+collectTouched touches id target acc =
+  Dict.insert id (areTouchesIntersecting touches target) acc
 
-mergeBoth : (a -> b -> c) -> comparable -> a -> b -> Dict comparable c -> Dict comparable c
-mergeBoth fn id left right result =
-  Dict.insert id (fn left right) result
+stopIntersecting : (String -> a -> b -> b) -> a -> String -> Bool -> (Model, b) -> (Model, b)
+stopIntersecting onStop a key wasIntersecting (model, b) =
+  if (False == wasIntersecting) then
+    (Dict.insert key wasIntersecting model, b)
+  else
+    (Dict.insert key wasIntersecting model, onStop key a b)
 
-update : (a -> b -> b) -> Msg a -> Dict String (Bool, b) -> Dict String (Bool, b)
-update fn { children, touches, meta } model =
+
+keepIntersecting : (String -> a -> b -> b) -> (String -> a -> b -> b) -> a -> String -> Bool -> Bool -> (Model, b) -> (Model, b)
+keepIntersecting onStart onStop a key wasIntersecting isIntersecting (model, b) =
+  if (wasIntersecting == isIntersecting) then
+    (Dict.insert key isIntersecting model, b)
+  else if (False == isIntersecting) then
+    (Dict.insert key isIntersecting model, onStop key a b)
+  else
+    (Dict.insert key isIntersecting model, onStart key a b)
+
+startIntersecting : (String -> a -> b -> b) -> a -> String -> Bool -> (Model, b) -> (Model, b)
+startIntersecting onStart a key isIntersecting (model, b) =
+  if (False == isIntersecting) then
+    (Dict.insert key isIntersecting model, b)
+  else
+    (Dict.insert key isIntersecting model, onStart key a b)
+
+update : (String -> a -> b -> b) -> (String -> a -> b -> b) -> Msg a -> (Model, b) -> (Model, b)
+update onStart onStop { children, touches, meta } (wasIntersecting, state) =
   let
-      updateState = fn meta
-      updateItemState = updateItem updateState touches
+    isIntersecting = Dict.foldl (collectTouched touches) Dict.empty children
   in
     Dict.merge
-      (\ id target acc -> acc)
-      (mergeBoth updateItemState)
-      (\ id touchItem acc -> acc)
-      children
-      model
-      model
+      (stopIntersecting onStop meta)
+      (keepIntersecting onStart onStop meta)
+      (startIntersecting onStart meta)
+      wasIntersecting
+      isIntersecting
+      (Dict.empty, state)
 
 
 
@@ -155,39 +166,21 @@ onTouchCancel : Decoder a -> H.Attribute (Msg a)
 onTouchCancel decoder =
   E.onWithOptions "touchcancel" options (decodeTouchEvent decoder)
 
-itemView : String -> (Bool, a) -> Html msg
-itemView key (isActive, _) =
-  let
-    color =
-      if isActive == True then
-        "#999999"
-      else
-        "#666666"
-  in
-    H.div
-      [ A.class key -- change this later to be a data attribute
-      , A.style
-          [ ("backgroundColor", color)
-          , ("box-sizing", "border-box")
-          , ("border", "4px solid #333333")
-          , ("width", "50%")
-          , ("height", "25%")
-          , ("float", "left")
-          ]
-      ]
-      []
-
-view : Decoder a -> Model b -> Html (Msg a)
-view decoder model =
+item : String -> List (H.Attribute (Msg a)) -> List (Html (Msg a)) -> Html (Msg a)
+item key attributes children =
   H.div
-    [ A.style
-        [ ("backgroundColor", "#333333")
-        , ("width", "100%")
-        , ("height", "100%")
-        ]
-    , onTouchStart decoder
-    , onTouchMove decoder
-    , onTouchEnd decoder
-    , onTouchCancel decoder
-    ]
-    (Dict.map itemView model |> Dict.values)
+    (A.class key :: attributes)
+    children
+
+group : Decoder a -> List (H.Attribute (Msg a)) -> List (Html (Msg a)) -> Html (Msg a)
+group decoder attributes children =
+  let
+    newAttributes = attributes
+      |> List.append
+          [ onTouchStart decoder
+          , onTouchMove decoder
+          , onTouchEnd decoder
+          , onTouchCancel decoder
+          ]
+  in
+    H.div newAttributes children
