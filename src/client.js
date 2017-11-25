@@ -21,13 +21,13 @@ function handleOutput (message) {
         audioContext,
         output: audioContext.destination
       });
+      // little hack until subscriptions/tasks to get current time is figured out
+      document.virtualAudioGraph = virtualAudioGraph;
       // must start with something for mobile
-      virtualAudioGraph.update({
-        0: ['gain', 'output', { gain: 0.001 }]
-      });
+      virtualAudioGraph.update(message.data);
     break;
     case 'update':
-      console.log('update', message.data);
+      console.log('update', virtualAudioGraph.currentTime, message.data);
       if (virtualAudioGraph) {
         virtualAudioGraph.update(message.data);
       }
