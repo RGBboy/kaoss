@@ -7,6 +7,7 @@ module TouchGroup exposing
   )
 
 import Color exposing (Color)
+import Dict exposing (Dict)
 import DOM
 import Html as H exposing (Html)
 import Html.Attributes as A
@@ -18,10 +19,12 @@ import Json.Decode.Pipeline as Decode exposing (decode)
 
 -- MODEL
 
-type alias Model = List Bool
+type alias TouchItem a = (Bool, a)
 
-init : Model
-init = [False, False, False, False]
+type alias Model a = Dict String (TouchItem a)
+
+init : Dict String a -> Model a
+init = Dict.map (\ _ value -> (False, value))
 
 
 
@@ -30,12 +33,13 @@ init = [False, False, False, False]
 type alias Touches
   = List (Float, Float)
 
-type alias TouchEvent =
-  { children : List DOM.Rectangle
+type alias TouchEvent a =
+  { children : Dict String DOM.Rectangle
   , touches : Touches
+  , meta : a
   }
 
-type alias Msg = TouchEvent
+type alias Msg a = TouchEvent a
 
 isTouchIntersecting : DOM.Rectangle -> (Float, Float) -> Bool -> Bool
 isTouchIntersecting { top, left, width, height } (x, y) existing =
@@ -54,9 +58,33 @@ areTouchesIntersecting : Touches -> DOM.Rectangle -> Bool
 areTouchesIntersecting touches target =
   List.foldl (isTouchIntersecting target) False touches
 
-update : Msg -> Model -> Model
-update { children, touches } _ =
-  List.map (areTouchesIntersecting touches) children
+updateItem : (b -> b) -> Touches -> DOM.Rectangle -> (Bool, b) -> (Bool, b)
+updateItem fn touches target (wasIntersecting, oldState) =
+  let
+    isIntersecting = areTouchesIntersecting touches target
+  in
+    if (wasIntersecting == isIntersecting) then
+      (wasIntersecting, oldState)
+    else
+      (isIntersecting, fn oldState)
+
+mergeBoth : (a -> b -> c) -> comparable -> a -> b -> Dict comparable c -> Dict comparable c
+mergeBoth fn id left right result =
+  Dict.insert id (fn left right) result
+
+update : (a -> b -> b) -> Msg a -> Dict String (Bool, b) -> Dict String (Bool, b)
+update fn { children, touches, meta } model =
+  let
+      updateState = fn meta
+      updateItemState = updateItem updateState touches
+  in
+    Dict.merge
+      (\ id target acc -> acc)
+      (mergeBoth updateItemState)
+      (\ id touchItem acc -> acc)
+      children
+      model
+      model
 
 
 
@@ -87,11 +115,23 @@ decodeTouchList =
   Decode.field "length" Decode.int
     |> Decode.andThen decodeTouches
 
-decodeTouchEvent : Decoder TouchEvent
-decodeTouchEvent =
+decodeNode : Decoder (String, DOM.Rectangle)
+decodeNode =
+  decode (,)
+    |> Decode.custom DOM.className
+    |> Decode.custom DOM.boundingClientRect
+
+decodeNodes : Decoder (Dict String DOM.Rectangle)
+decodeNodes =
+  decode Dict.fromList
+    |> Decode.custom (DOM.childNodes decodeNode)
+
+decodeTouchEvent : Decoder a -> Decoder (TouchEvent a)
+decodeTouchEvent decoder =
   decode TouchEvent
-    |> Decode.required "currentTarget" (DOM.childNodes DOM.boundingClientRect)
+    |> Decode.required "currentTarget" decodeNodes
     |> Decode.required "touches" decodeTouchList
+    |> Decode.custom decoder
 
 options : E.Options
 options =
@@ -99,24 +139,24 @@ options =
   , preventDefault = True
   }
 
-onTouchStart : (TouchEvent -> msg) -> H.Attribute msg
-onTouchStart tagger =
-  E.onWithOptions "touchstart" options (Decode.map ((Debug.log "onTouchStart") >> tagger) decodeTouchEvent)
+onTouchStart : Decoder a -> H.Attribute (Msg a)
+onTouchStart decoder =
+  E.onWithOptions "touchstart" options (decodeTouchEvent decoder)
 
-onTouchMove : (TouchEvent -> msg) -> H.Attribute msg
-onTouchMove tagger =
-  E.onWithOptions "touchmove" options (Decode.map ((Debug.log "onTouchMove") >> tagger) decodeTouchEvent)
+onTouchMove : Decoder a -> H.Attribute (Msg a)
+onTouchMove decoder =
+  E.onWithOptions "touchmove" options (decodeTouchEvent decoder)
 
-onTouchEnd : (TouchEvent -> msg) -> H.Attribute msg
-onTouchEnd tagger =
-  E.onWithOptions "touchend" options (Decode.map ((Debug.log "onTouchEnd") >> tagger) decodeTouchEvent)
+onTouchEnd : Decoder a -> H.Attribute (Msg a)
+onTouchEnd decoder =
+  E.onWithOptions "touchend" options (decodeTouchEvent decoder)
 
-onTouchCancel : (TouchEvent -> msg) -> H.Attribute msg
-onTouchCancel tagger =
-  E.onWithOptions "touchcancel" options (Decode.map ((Debug.log "onTouchCancel") >> tagger) decodeTouchEvent)
+onTouchCancel : Decoder a -> H.Attribute (Msg a)
+onTouchCancel decoder =
+  E.onWithOptions "touchcancel" options (decodeTouchEvent decoder)
 
-itemView : Bool -> Html msg
-itemView isActive =
+itemView : String -> (Bool, a) -> Html msg
+itemView key (isActive, _) =
   let
     color =
       if isActive == True then
@@ -125,30 +165,29 @@ itemView isActive =
         "#666666"
   in
     H.div
-      [ A.style
+      [ A.class key -- change this later to be a data attribute
+      , A.style
           [ ("backgroundColor", color)
           , ("box-sizing", "border-box")
           , ("border", "4px solid #333333")
           , ("width", "50%")
-          , ("height", "50%")
+          , ("height", "25%")
           , ("float", "left")
           ]
       ]
       []
 
-view : Model -> Html Msg
-view model =
+view : Decoder a -> Model b -> Html (Msg a)
+view decoder model =
   H.div
     [ A.style
         [ ("backgroundColor", "#333333")
-        , ("margin-left", "25%")
-        , ("margin-top", "25%")
-        , ("width", "50%")
-        , ("height", "500px")
+        , ("width", "100%")
+        , ("height", "100%")
         ]
-    , onTouchStart identity
-    , onTouchMove identity
-    , onTouchEnd identity
-    , onTouchCancel identity
+    , onTouchStart decoder
+    , onTouchMove decoder
+    , onTouchEnd decoder
+    , onTouchCancel decoder
     ]
-    <| List.map itemView model
+    (Dict.map itemView model |> Dict.values)

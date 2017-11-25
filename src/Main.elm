@@ -6,7 +6,8 @@ import Html.Events as E
 import Json.Encode as Encode
 import Kaoss
 import Sequencer
-import TouchGroup
+import Pad
+
 
 
 main : Program Never Model Msg
@@ -36,15 +37,15 @@ type alias Model =
   { state : State
   -- , kaoss : Kaoss.Model
   -- , sequencer : Sequencer.Model
-  , touchGroup : TouchGroup.Model
+  , pad : Pad.Model
   }
 
 init : (Model, Cmd msg)
 init =
-  ( { state = Playing
+  ( { state = Idle
     -- , kaoss = Kaoss.init (320, 320)
     -- , sequencer = Sequencer.init
-    , touchGroup = TouchGroup.init
+    , pad = Pad.init
     }
   , Cmd.none
   )
@@ -64,7 +65,7 @@ type Msg
   = Start
   -- | KaossMessage Kaoss.Msg
   -- | SequencerMessage Sequencer.Msg
-  | TouchGroupMessage TouchGroup.Msg
+  | PadMessage Pad.Msg
 
 update : Msg -> Model -> (Model, Cmd msg)
 update message model =
@@ -74,8 +75,7 @@ update message model =
         newModel = { model | state = Playing }
       in
       ( newModel
-      , Cmd.none
-      -- , graph newModel  |> AudioGraph.encode |> outputType "init" |> output
+      , graph newModel |> AudioGraph.encode |> outputType "init" |> output
       )
     -- KaossMessage msg ->
     --   let
@@ -91,28 +91,34 @@ update message model =
     --     ( newModel
     --     , graph newModel |> AudioGraph.encode |> outputType "update" |> output
     --     )
-    TouchGroupMessage msg ->
-      ( { model | touchGroup = TouchGroup.update msg model.touchGroup }
-      , Cmd.none
-      )
+    PadMessage msg ->
+      let
+        newModel = { model | pad = Pad.update msg model.pad }
+        cmd =
+          if newModel == model then
+            Cmd.none
+          else
+            graph newModel |> AudioGraph.encode |> outputType "update" |> output
+      in
+        ( newModel
+        , cmd
+        )
 
 
 
 -- GRAPH
 
---
--- graph : Model -> AudioGraph
--- graph model =
---   Dict.toList model.adsr
---     |> List.concatMap adsrGraph
---     -- |> List.append
---     --     (Kaoss.graph "kaoss" (AudioGraph.connectTo "0") model.kaoss)
---     -- |> List.append
---     --     (Sequencer.graph "sequencer" (AudioGraph.connectTo "0") model.sequencer)
---     |> List.append
---         [ AudioGraph.gainNode "0" AudioGraph.output
---             [ AudioGraph.gain 1 ]
---         ]
+graph : Model -> AudioGraph
+graph model =
+  [ AudioGraph.gainNode "0" AudioGraph.output
+      [ AudioGraph.gain 1 ]
+  ]
+  |> List.append
+      (Pad.graph "pad" (AudioGraph.connectTo "0") model.pad)
+    -- |> List.append
+    --     (Kaoss.graph "kaoss" (AudioGraph.connectTo "0") model.kaoss)
+    -- |> List.append
+    --     (Sequencer.graph "sequencer" (AudioGraph.connectTo "0") model.sequencer)
 
 
 
@@ -136,6 +142,6 @@ view model =
         ]
         [ H.text "Start" ]
     _ ->
-      TouchGroup.view model.touchGroup |> H.map TouchGroupMessage
+      Pad.view model.pad |> H.map PadMessage
       -- Kaoss.view model.kaoss |> H.map KaossMessage
       -- Sequencer.view model.sequencer |> H.map SequencerMessage
