@@ -18,6 +18,7 @@ import Time exposing (Time)
 import TouchGroup
 
 
+
 -- MODEL
 
 type alias Note = (Bool, Float, Time)
@@ -39,10 +40,8 @@ notes = Dict.fromList
   , ("7-G5", note 783.99)
   ]
 
--- Eb3 G3 C4 Eb4 G4 C5 Eb5 G5
 init : Model
 init = (TouchGroup.init, notes)
-
 
 
 
@@ -82,9 +81,6 @@ config =
   , release = 0.5
   }
 
--- NOTE: Timings can take a delayed amount of time. If a delayed message is sent
--- to virual audio graph it ignores the udpate.
-
 noteGraph : String -> AudioGraph.Destination -> Note -> AudioGraph
 noteGraph id destination (isActive, frequency, time) =
   let
@@ -112,13 +108,13 @@ noteGraph id destination (isActive, frequency, time) =
     ]
 
 -- change name
-reduce : String -> AudioGraph.Destination -> (String, Note) -> AudioGraph -> AudioGraph
-reduce rootId destination (id, note) graph =
+notesGraph : String -> AudioGraph.Destination -> (String, Note) -> AudioGraph -> AudioGraph
+notesGraph rootId destination (id, note) graph =
   List.append (noteGraph (rootId ++ "-" ++ id) destination note) graph
 
 graph : String -> AudioGraph.Destination -> Model -> AudioGraph
 graph id output (_, notes) =
-  List.foldl (reduce id output) [] (Dict.toList notes)
+  List.foldl (notesGraph id output) [] (Dict.toList notes)
 
 
 
