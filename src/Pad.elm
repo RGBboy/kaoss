@@ -21,12 +21,16 @@ import TouchGroup
 
 -- MODEL
 
-type alias Note = (Bool, Float, Time)
+type State
+  = Active
+  | Inactive
+
+type alias Note = (State, Float, Time)
 
 type alias Model = (TouchGroup.Model, Dict String Note)
 
 note : Float -> Note
-note frequency = (False, frequency, 0)
+note frequency = (Inactive, frequency, 0)
 
 notes : Dict String Note
 notes = Dict.fromList
@@ -51,7 +55,7 @@ type alias Msg = TouchGroup.Msg Time
 
 startNote : Time -> Note -> Note
 startNote time (isActive, frequency, oldTime) =
-  (True, frequency, time)
+  (Active, frequency, time)
 
 onStart : String -> Time -> Dict String Note -> Dict String Note
 onStart key time model =
@@ -59,7 +63,7 @@ onStart key time model =
 
 stopNote : Time -> Note -> Note
 stopNote time (isActive, frequency, oldTime) =
-  (False, frequency, time)
+  (Inactive, frequency, time)
 
 onStop : String -> Time -> Dict String Note -> Dict String Note
 onStop key time model =
@@ -82,13 +86,13 @@ config =
   }
 
 noteGraph : String -> AudioGraph.Destination -> Note -> AudioGraph
-noteGraph id destination (isActive, frequency, time) =
+noteGraph id destination (state, frequency, time) =
   let
     gainId = id ++ "-0"
     gainProperties =
-      case isActive of
-        True -> ADSR.on config time
-        False -> ADSR.off config time
+      case state of
+        Active -> ADSR.on config time
+        Inactive -> ADSR.off config time
   in
     [ AudioGraph.gainNode gainId destination gainProperties
     , AudioGraph.oscillator (id ++ "-1") (AudioGraph.connectTo gainId)
@@ -125,13 +129,12 @@ decodeTime =
   Decode.at ["view", "document", "virtualAudioGraph", "currentTime"] Decode.float
 
 itemView : (String, Note) -> Html Msg
-itemView (key, (isActive, _, _)) =
+itemView (key, (state, _, _)) =
   let
     color =
-      if isActive == True then
-        "#999999"
-      else
-        "#666666"
+      case state of
+        Active -> "#999999"
+        Inactive -> "#666666"
   in
     TouchGroup.item key
       [ A.style
