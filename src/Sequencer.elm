@@ -135,8 +135,10 @@ button playing index state =
     H.button
       [ A.style
           [ ("backgroundColor", color)
-          , ("width", "50px")
-          , ("height", "50px")
+          , ("box-sizing", "border-box")
+          , ("border", "4px solid #333333")
+          , ("width", "100%")
+          , ("height", "12.5%")
           ]
       , E.onClick (Toggle index)
       ]
@@ -145,7 +147,10 @@ button playing index state =
 controls : Int -> Array Button -> Html Msg
 controls playing buttons =
   H.div
-    [ A.style []
+    [ A.style
+        [ ("width", "100%")
+        , ("height", "100%")
+        ]
     ]
     (Array.indexedMap (button playing) buttons |> Array.toList)
 
@@ -154,7 +159,11 @@ controls playing buttons =
 view : Model -> Html Msg
 view model =
   H.div
-    [ A.style []
+    [ A.style
+        [ ("width", "20%")
+        , ("height", "100%")
+        , ("float", "left")
+        ]
     ]
     [ controls model.playing model.sequence
     ]

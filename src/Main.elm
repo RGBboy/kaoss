@@ -2,6 +2,7 @@ port module Main exposing (..)
 
 import AudioGraph exposing (AudioGraph)
 import Html as H exposing (Html)
+import Html.Attributes as A
 import Html.Events as E
 import Json.Encode as Encode
 import Kaoss
@@ -36,7 +37,7 @@ type State
 type alias Model =
   { state : State
   -- , kaoss : Kaoss.Model
-  -- , sequencer : Sequencer.Model
+  , sequencer : Sequencer.Model
   , pad : Pad.Model
   }
 
@@ -44,7 +45,7 @@ init : (Model, Cmd msg)
 init =
   ( { state = Idle
     -- , kaoss = Kaoss.init (320, 320)
-    -- , sequencer = Sequencer.init
+    , sequencer = Sequencer.init
     , pad = Pad.init
     }
   , Cmd.none
@@ -64,7 +65,7 @@ outputType kind data =
 type Msg
   = Start
   -- | KaossMessage Kaoss.Msg
-  -- | SequencerMessage Sequencer.Msg
+  | SequencerMessage Sequencer.Msg
   | PadMessage Pad.Msg
 
 update : Msg -> Model -> (Model, Cmd msg)
@@ -84,13 +85,13 @@ update message model =
     --     ( newModel
     --     , graph newModel |> AudioGraph.encode |> outputType "update" |> output
     --     )
-    -- SequencerMessage msg ->
-    --   let
-    --     newModel = { model | sequencer = Sequencer.update msg model.sequencer }
-    --   in
-    --     ( newModel
-    --     , graph newModel |> AudioGraph.encode |> outputType "update" |> output
-    --     )
+    SequencerMessage msg ->
+      let
+        newModel = { model | sequencer = Sequencer.update msg model.sequencer }
+      in
+        ( newModel
+        , graph newModel |> AudioGraph.encode |> outputType "update" |> output
+        )
     PadMessage msg ->
       let
         newModel = { model | pad = Pad.update msg model.pad }
@@ -117,8 +118,8 @@ graph model =
       (Pad.graph "pad" (AudioGraph.connectTo "0") model.pad)
     -- |> List.append
     --     (Kaoss.graph "kaoss" (AudioGraph.connectTo "0") model.kaoss)
-    -- |> List.append
-    --     (Sequencer.graph "sequencer" (AudioGraph.connectTo "0") model.sequencer)
+  |> List.append
+      (Sequencer.graph "sequencer" (AudioGraph.connectTo "0") model.sequencer)
 
 
 
@@ -126,8 +127,11 @@ graph model =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-  Sub.none
-  -- Sub.map SequencerMessage (Sequencer.subscriptions model.sequencer)
+  case model.state of
+    Idle ->
+      Sub.none
+    Playing ->
+      Sub.map SequencerMessage (Sequencer.subscriptions model.sequencer)
 
 
 
@@ -142,6 +146,13 @@ view model =
         ]
         [ H.text "Start" ]
     _ ->
-      Pad.view model.pad |> H.map PadMessage
-      -- Kaoss.view model.kaoss |> H.map KaossMessage
-      -- Sequencer.view model.sequencer |> H.map SequencerMessage
+      H.div
+        [ A.style
+            [ ("width", "100%")
+            , ("height", "100%")
+            ]
+        ]
+        [ Pad.view model.pad |> H.map PadMessage
+        --, Kaoss.view model.kaoss |> H.map KaossMessage
+        , Sequencer.view model.sequencer |> H.map SequencerMessage
+        ]

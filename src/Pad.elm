@@ -153,8 +153,9 @@ view (_, notes) =
   TouchGroup.group decodeTime
     [ A.style
         [ ("backgroundColor", "#333333")
-        , ("width", "100%")
+        , ("width", "80%")
         , ("height", "100%")
+        , ("float", "left")
         ]
     ]
     (Dict.toList notes |> List.map itemView)
