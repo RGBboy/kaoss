@@ -7,8 +7,10 @@ module AudioGraph exposing
   , AudioParam
   , sineWave, squareWave, sawtoothWave
   , gain
+  , pinkNoise
   , value, valueAtTime, linearRampToValueAtTime, exponentialRampToValueAtTime
-  , encode
+  , updateGraph
+  , getCurrentTime
   , decodeTime
   )
 
@@ -29,6 +31,7 @@ type alias AudioNode =
 type Node
   = OscillatorNode WaveType Frequency Detune
   | GainNode Gain
+  | PinkNoiseNode
 
 type WaveType
   = Sine
@@ -84,6 +87,9 @@ sawtoothWave frequency detune =
 gain : List AudioParam -> Node
 gain params =
   GainNode (Gain params)
+
+pinkNoise : Node
+pinkNoise = PinkNoiseNode
 
 connectTo : String -> Destination
 connectTo = Connect
@@ -171,6 +177,7 @@ encodeNode node =
         ]
         |> Encode.object
       )
+    PinkNoiseNode -> ("pinkNoise", Encode.null)
 
 encodeAudioNode : AudioNode -> (String, Encode.Value)
 encodeAudioNode audioNode =
@@ -186,11 +193,16 @@ encodeAudioNode audioNode =
         ]
     )
 
-encode : AudioGraph -> Encode.Value
-encode graph =
-  List.map encodeAudioNode graph |> Encode.object
+updateGraph : AudioGraph -> Encode.Value
+updateGraph graph =
+  [ ("type", Encode.string "update")
+  , ("data", List.map encodeAudioNode graph |> Encode.object)
+  ]
+    |> Encode.object
 
-
+getCurrentTime : Encode.Value
+getCurrentTime =
+  [ ("type", Encode.string "getCurrentTime") ] |> Encode.object
 
 -- Decode Time
 
