@@ -8,6 +8,7 @@ import Json.Encode as Encode
 import Kaoss
 import Sequencer
 import Pad
+import Time exposing (Time)
 
 
 
@@ -25,6 +26,7 @@ main =
 -- PORTS
 
 port output : Encode.Value -> Cmd msg
+port input : (Time -> msg) -> Sub msg
 
 
 
@@ -76,21 +78,30 @@ update message model =
         newModel = { model | state = Playing }
       in
       ( newModel
-      , graph newModel |> AudioGraph.encode |> outputType "init" |> output
+      , graph newModel |> AudioGraph.updateGraph |> output
       )
     -- KaossMessage msg ->
     --   let
     --     newModel = { model | kaoss = Kaoss.update msg model.kaoss }
     --   in
     --     ( newModel
-    --     , graph newModel |> AudioGraph.encode |> outputType "update" |> output
+    --     , graph newModel |> AudioGraph.updateGraph |> output
     --     )
     SequencerMessage msg ->
       let
-        newModel = { model | sequencer = Sequencer.update msg model.sequencer }
+        (sequencer, cmd) = Sequencer.update output msg model.sequencer
+        newModel = { model | sequencer = sequencer }
+        cmds =
+          if newModel == model then
+            cmd
+          else
+            Cmd.batch
+                [ graph newModel |> AudioGraph.updateGraph |> output
+                , cmd
+                ]
       in
         ( newModel
-        , graph newModel |> AudioGraph.encode |> outputType "update" |> output
+        , cmds
         )
     PadMessage msg ->
       let
@@ -99,7 +110,7 @@ update message model =
           if newModel == model then
             Cmd.none
           else
-            graph newModel |> AudioGraph.encode |> outputType "update" |> output
+            graph newModel |> AudioGraph.updateGraph |> output
       in
         ( newModel
         , cmd
@@ -131,7 +142,7 @@ subscriptions model =
     Idle ->
       Sub.none
     Playing ->
-      Sub.map SequencerMessage (Sequencer.subscriptions model.sequencer)
+      Sub.map SequencerMessage (Sequencer.subscriptions input model.sequencer)
 
 
 

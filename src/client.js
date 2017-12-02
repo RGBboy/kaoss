@@ -5,4 +5,4 @@ var Elm = require('./Main.elm'),
     element = document.getElementById('mount'),
     app = Elm.Main.embed(element);
 
-app.ports.output.subscribe(AudioGraph.update);
+AudioGraph(app.ports.input, app.ports.output);

@@ -10,6 +10,7 @@ module Sequencer exposing
 
 import AudioGraph exposing (AudioGraph)
 import Color exposing (Color)
+import Json.Encode as Encode
 import Html as H exposing (Html)
 import Html.Attributes as A
 import Html.Events as E
@@ -27,17 +28,19 @@ type Button
   | Disabled
 
 initButton : Button
-initButton = Disabled
+initButton = Enabled
 
 type alias Model =
   { sequence : Array Button
   , playing : Int
+  , currentTime : Time
   }
 
 init : Model
 init =
   { sequence = Array.repeat 8 initButton
   , playing = 0
+  , currentTime = 0
   }
 
 
@@ -47,6 +50,7 @@ init =
 type Msg
   = Toggle Int
   | Tick Time
+  | CurrentTime Time
 
 toggleButton : Button -> Button
 toggleButton button =
@@ -58,59 +62,72 @@ updateButton : Int -> Model -> Button -> Model
 updateButton index model button =
   { model | sequence = Array.set index button model.sequence }
 
-update : Msg -> Model -> Model
-update message model =
+update : (Encode.Value -> Cmd msg) -> Msg -> Model -> (Model, Cmd msg)
+update output message model =
   case message of
     Toggle index ->
-      Array.get index model.sequence
-        |> Maybe.map toggleButton
-        |> Maybe.map (updateButton index model)
-        |> Maybe.withDefault model
-    Tick time ->
-      { model
-      | playing = time / interval
-          |> round
-          |> flip (%) (Array.length model.sequence)
-      }
+      ( Array.get index model.sequence
+          |> Maybe.map toggleButton
+          |> Maybe.map (updateButton index model)
+          |> Maybe.withDefault model
+      , Cmd.none
+      )
+    Tick _ ->
+      ( model
+      , AudioGraph.getCurrentTime |> output
+      )
+    CurrentTime time ->
+      ( { model
+        | playing = time / (Time.inSeconds interval)
+            |> round
+            |> flip (%) (Array.length model.sequence)
+        , currentTime = time
+        }
+      , Cmd.none
+      )
 
 
 
 -- SUBSCRIPTIONS
 
-subscriptions : Model -> Sub Msg
-subscriptions model =
+subscriptions : ((Time -> Msg) -> Sub Msg) -> Model -> Sub Msg
+subscriptions input model =
   -- will need to make this more accurate to account for drift
-  Time.every interval Tick
+  Sub.batch
+    [ Time.every interval Tick
+    , input CurrentTime
+    ]
+
 
 
 
 -- GRAPH
 
-frequencyRatio : Float -> Float
-frequencyRatio value =
-  (2 ^ value) ^ (1 / 12)
-
-buttonToGain : Button -> Float
-buttonToGain button =
+buttonToGain : Time -> Button -> List AudioGraph.AudioParam
+buttonToGain time button =
   case button of
-    Enabled -> 0.5
-    Disabled -> 0
+    Enabled ->
+      [ AudioGraph.valueAtTime 1 (time + 0.01) -- required for mobile to sound correct
+      , AudioGraph.linearRampToValueAtTime 0 (time + 0.15)
+      ]
+    Disabled -> [ AudioGraph.value 0 ]
 
 graph : String -> AudioGraph.Destination -> Model -> AudioGraph
 graph id output model =
   let
     rootId = id ++ "-0"
-    frequency = (Array.length model.sequence |> toFloat) / (model.playing + 1 |> toFloat)
     gain = Array.get model.playing model.sequence
-      |> Maybe.map buttonToGain
-      |> Maybe.withDefault 0
+      |> Maybe.map (buttonToGain model.currentTime)
+      |> Maybe.withDefault [ AudioGraph.value 0 ]
   in
     [ AudioGraph.audioNode rootId output
-        <| AudioGraph.gain [AudioGraph.value gain]
+        <| AudioGraph.gain gain
     , AudioGraph.audioNode (id ++ "-1") (AudioGraph.connectTo rootId)
-        <| AudioGraph.sineWave (frequencyRatio frequency |> (*) 110) 0
+        <| AudioGraph.pinkNoise
     , AudioGraph.audioNode (id ++ "-2") (AudioGraph.connectTo rootId)
-        <| AudioGraph.sineWave (frequency + 7 |> frequencyRatio |> (*) 110) 4
+        <| AudioGraph.squareWave 196.00 0
+    , AudioGraph.audioNode (id ++ "-3") (AudioGraph.connectTo rootId)
+        <| AudioGraph.squareWave 261.63 0
     ]
 
 
