@@ -116,10 +116,6 @@ graph id output (_, notes) =
 
 -- VIEW
 
-decodeTime : Decoder Time
-decodeTime =
-  Decode.at ["view", "document", "virtualAudioGraph", "currentTime"] Decode.float
-
 itemView : (String, Note) -> Html Msg
 itemView (key, (state, _, _)) =
   let
@@ -142,7 +138,7 @@ itemView (key, (state, _, _)) =
 
 view : Model -> Html Msg
 view (_, notes) =
-  TouchGroup.group decodeTime
+  TouchGroup.group AudioGraph.decodeTime
     [ A.style
         [ ("backgroundColor", "#333333")
         , ("width", "80%")

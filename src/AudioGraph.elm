@@ -9,11 +9,13 @@ module AudioGraph exposing
   , gain
   , value, valueAtTime, linearRampToValueAtTime, exponentialRampToValueAtTime
   , encode
+  , decodeTime
   )
 
 import Dict exposing (Dict)
+import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
-
+import Time exposing (Time)
 
 
 type alias AudioGraph = List AudioNode
@@ -187,3 +189,11 @@ encodeAudioNode audioNode =
 encode : AudioGraph -> Encode.Value
 encode graph =
   List.map encodeAudioNode graph |> Encode.object
+
+
+
+-- Decode Time
+
+decodeTime : Decoder Time
+decodeTime =
+  Decode.at ["view", "document", "audioGraph", "currentTime"] Decode.float
