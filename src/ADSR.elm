@@ -15,15 +15,15 @@ type alias Config =
   , release : Time
   }
 
-on : Config -> Time -> List AudioGraph.AudioProperty
+on : Config -> Time -> List AudioGraph.AudioParam
 on { attack, decay, sustain } time =
-  [ AudioGraph.gainLinearRampToValueAtTime 0 time -- required for mobile to sound correct
-  , AudioGraph.gainLinearRampToValueAtTime 1 (time + attack)
-  , AudioGraph.gainLinearRampToValueAtTime sustain (time + attack + decay)
+  [ AudioGraph.linearRampToValueAtTime 0 time -- required for mobile to sound correct
+  , AudioGraph.linearRampToValueAtTime 1 (time + attack)
+  , AudioGraph.linearRampToValueAtTime sustain (time + attack + decay)
   ]
 
-off : Config -> Time -> List AudioGraph.AudioProperty
+off : Config -> Time -> List AudioGraph.AudioParam
 off { sustain, release } time =
-  [ AudioGraph.gainLinearRampToValueAtTime sustain time-- required for mobile to sound correct
-  , AudioGraph.gainLinearRampToValueAtTime 0 (time + release) -- Release
+  [ AudioGraph.linearRampToValueAtTime sustain time-- required for mobile to sound correct
+  , AudioGraph.linearRampToValueAtTime 0 (time + release) -- Release
   ]

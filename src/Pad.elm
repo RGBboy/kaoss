@@ -94,21 +94,13 @@ noteGraph id destination (state, frequency, time) =
         Active -> ADSR.on config time
         Inactive -> ADSR.off config time
   in
-    [ AudioGraph.gainNode gainId destination gainProperties
-    , AudioGraph.oscillator (id ++ "-1") (AudioGraph.connectTo gainId)
-        [ AudioGraph.squareWave
-        , AudioGraph.frequency frequency
-        ]
-    , AudioGraph.oscillator (id ++ "-2") (AudioGraph.connectTo gainId)
-        [ AudioGraph.squareWave
-        , AudioGraph.detune 10
-        , AudioGraph.frequency frequency
-        ]
-    , AudioGraph.oscillator (id ++ "-2") (AudioGraph.connectTo gainId)
-        [ AudioGraph.squareWave
-        , AudioGraph.detune -10
-        , AudioGraph.frequency frequency
-        ]
+    [ AudioGraph.audioNode gainId destination (AudioGraph.gain gainProperties)
+    , AudioGraph.audioNode (id ++ "-1") (AudioGraph.connectTo gainId)
+        <| AudioGraph.squareWave frequency 0
+    , AudioGraph.audioNode (id ++ "-2") (AudioGraph.connectTo gainId)
+        <| AudioGraph.squareWave frequency 10
+    , AudioGraph.audioNode (id ++ "-2") (AudioGraph.connectTo gainId)
+        <| AudioGraph.squareWave frequency -10
     ]
 
 -- change name

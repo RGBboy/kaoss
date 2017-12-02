@@ -111,8 +111,8 @@ update message model =
 
 graph : Model -> AudioGraph
 graph model =
-  [ AudioGraph.gainNode "0" AudioGraph.output
-      [ AudioGraph.gain 1 ]
+  [ AudioGraph.audioNode "0" AudioGraph.output
+      <| AudioGraph.gain [ AudioGraph.value 1 ]
   ]
   |> List.append
       (Pad.graph "pad" (AudioGraph.connectTo "0") model.pad)

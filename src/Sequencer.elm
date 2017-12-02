@@ -105,17 +105,12 @@ graph id output model =
       |> Maybe.map buttonToGain
       |> Maybe.withDefault 0
   in
-    [ AudioGraph.gainNode rootId output
-        [ AudioGraph.gain gain ]
-    , AudioGraph.oscillator (id ++ "-1") (AudioGraph.connectTo rootId)
-        [ AudioGraph.sineWave
-        , frequencyRatio frequency |> (*) 110 |> AudioGraph.frequency
-        ]
-    , AudioGraph.oscillator (id ++ "-2") (AudioGraph.connectTo rootId)
-        [ AudioGraph.sineWave
-        , frequency + 7 |> frequencyRatio |> (*) 110 |> AudioGraph.frequency
-        , AudioGraph.detune 4
-        ]
+    [ AudioGraph.audioNode rootId output
+        <| AudioGraph.gain [AudioGraph.value gain]
+    , AudioGraph.audioNode (id ++ "-1") (AudioGraph.connectTo rootId)
+        <| AudioGraph.sineWave (frequencyRatio frequency |> (*) 110) 0
+    , AudioGraph.audioNode (id ++ "-2") (AudioGraph.connectTo rootId)
+        <| AudioGraph.sineWave (frequency + 7 |> frequencyRatio |> (*) 110) 4
     ]
 
 
