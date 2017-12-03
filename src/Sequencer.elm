@@ -107,8 +107,9 @@ buttonToGain : Time -> Button -> List AudioGraph.AudioParam
 buttonToGain time button =
   case button of
     Enabled ->
-      [ AudioGraph.valueAtTime 1 (time + 0.01) -- required for mobile to sound correct
-      , AudioGraph.linearRampToValueAtTime 0 (time + 0.15)
+      [ AudioGraph.linearRampToValueAtTime 0 (time + 0.01) -- required for mobile to sound correct
+      , AudioGraph.linearRampToValueAtTime 1 (time + 0.011)
+      , AudioGraph.linearRampToValueAtTime 0 (time + 0.25)
       ]
     Disabled -> [ AudioGraph.value 0 ]
 
@@ -116,18 +117,22 @@ graph : String -> AudioGraph.Destination -> Model -> AudioGraph
 graph id output model =
   let
     rootId = id ++ "-0"
+    lowPassId = id ++ "-lowpass"
+    highPassId = id ++ "-highpass"
     gain = Array.get model.playing model.sequence
       |> Maybe.map (buttonToGain model.currentTime)
       |> Maybe.withDefault [ AudioGraph.value 0 ]
   in
     [ AudioGraph.audioNode rootId output
         <| AudioGraph.gain gain
-    , AudioGraph.audioNode (id ++ "-1") (AudioGraph.connectTo rootId)
+    , AudioGraph.audioNode lowPassId (AudioGraph.connectTo rootId)
+        <| AudioGraph.lowPassFilter 78
+    , AudioGraph.audioNode highPassId (AudioGraph.connectTo lowPassId)
+        <| AudioGraph.highPassFilter 136
+    , AudioGraph.audioNode (id ++ "-noise1") (AudioGraph.connectTo highPassId)
         <| AudioGraph.pinkNoise
-    , AudioGraph.audioNode (id ++ "-2") (AudioGraph.connectTo rootId)
-        <| AudioGraph.squareWave 196.00 0
-    , AudioGraph.audioNode (id ++ "-3") (AudioGraph.connectTo rootId)
-        <| AudioGraph.squareWave 261.63 0
+    , AudioGraph.audioNode (id ++ "-noise2") (AudioGraph.connectTo highPassId)
+        <| AudioGraph.pinkNoise
     ]
 
 

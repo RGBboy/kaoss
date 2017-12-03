@@ -7,6 +7,7 @@ module AudioGraph exposing
   , AudioParam
   , sineWave, squareWave, sawtoothWave
   , gain
+  , lowPassFilter, highPassFilter
   , pinkNoise
   , value, valueAtTime, linearRampToValueAtTime, exponentialRampToValueAtTime
   , updateGraph
@@ -31,12 +32,17 @@ type alias AudioNode =
 type Node
   = OscillatorNode WaveType Frequency Detune
   | GainNode Gain
+  | BiquadFilterNode FilterType Frequency
   | PinkNoiseNode
 
 type WaveType
   = Sine
   | Square
   | Sawtooth
+
+type FilterType
+  = LowPass
+  | HighPass
 
 type Frequency =
   Frequency (List AudioParam)
@@ -87,6 +93,18 @@ sawtoothWave frequency detune =
 gain : List AudioParam -> Node
 gain params =
   GainNode (Gain params)
+
+lowPassFilter : Float -> Node
+lowPassFilter frequency =
+  BiquadFilterNode
+    LowPass
+    (Frequency [Scalar frequency])
+
+highPassFilter : Float -> Node
+highPassFilter frequency =
+  BiquadFilterNode
+    LowPass
+    (Frequency [Scalar frequency])
 
 pinkNoise : Node
 pinkNoise = PinkNoiseNode
@@ -160,6 +178,12 @@ encodeWaveType waveType =
     Square -> Encode.string "square"
     Sawtooth -> Encode.string "sawtooth"
 
+encodeFilterType : FilterType -> Encode.Value
+encodeFilterType filterType =
+  case filterType of
+    LowPass -> Encode.string "lowpass"
+    HighPass -> Encode.string "highpass"
+
 encodeNode : Node -> (String, Encode.Value)
 encodeNode node =
   case node of
@@ -174,6 +198,13 @@ encodeNode node =
     GainNode (Gain gain) ->
       ( "gain"
       , [ ("gain", encodeAudioParams gain)
+        ]
+        |> Encode.object
+      )
+    BiquadFilterNode filterType (Frequency frequency) ->
+      ( "biquadFilter"
+      , [ ( "type", encodeFilterType filterType )
+        , ( "frequency", encodeAudioParams frequency )
         ]
         |> Encode.object
       )
