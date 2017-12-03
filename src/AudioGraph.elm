@@ -1,6 +1,7 @@
 module AudioGraph exposing
   ( AudioGraph
   , audioGraph
+  , AudioNode
   , audioNode
   , Destination
   , connectTo, output
