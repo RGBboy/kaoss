@@ -78,25 +78,25 @@ sineWave frequency detune =
     (Frequency frequency)
     (Detune [Scalar detune])
 
-squareWave : Float -> Float -> Node
+squareWave : List AudioParam -> Float -> Node
 squareWave frequency detune =
   OscillatorNode
     Square
-    (Frequency [Scalar frequency])
+    (Frequency frequency)
     (Detune [Scalar detune])
 
-sawtoothWave : Float -> Float -> Node
+sawtoothWave : List AudioParam -> Float -> Node
 sawtoothWave frequency detune =
   OscillatorNode
     Sawtooth
-    (Frequency [Scalar frequency])
+    (Frequency frequency)
     (Detune [Scalar detune])
 
-triangleWave : Float -> Float -> Node
+triangleWave : List AudioParam -> Float -> Node
 triangleWave frequency detune =
   OscillatorNode
     Triangle
-    (Frequency [Scalar frequency])
+    (Frequency frequency)
     (Detune [Scalar detune])
 
 gain : List AudioParam -> Node

@@ -96,11 +96,11 @@ noteGraph id destination (state, frequency, time) =
   in
     [ AudioGraph.audioNode gainId destination (AudioGraph.gain gainProperties)
     , AudioGraph.audioNode (id ++ "-1") (AudioGraph.connectTo gainId)
-        <| AudioGraph.squareWave frequency 0
+        <| AudioGraph.squareWave [AudioGraph.value frequency] 0
     , AudioGraph.audioNode (id ++ "-2") (AudioGraph.connectTo gainId)
-        <| AudioGraph.squareWave frequency 10
+        <| AudioGraph.squareWave [AudioGraph.value frequency] 10
     , AudioGraph.audioNode (id ++ "-2") (AudioGraph.connectTo gainId)
-        <| AudioGraph.squareWave frequency -10
+        <| AudioGraph.squareWave [AudioGraph.value frequency] -10
     ]
 
 -- change name

@@ -107,16 +107,16 @@ buttonToGain : Time -> Button -> List AudioGraph.AudioParam
 buttonToGain time button =
   case button of
     Enabled ->
-      [ AudioGraph.valueAtTime 0 (time + 0.05)
-      , AudioGraph.linearRampToValueAtTime 1 (time + 0.055)
+      [ AudioGraph.valueAtTime 0 (time + 0.02)
+      , AudioGraph.linearRampToValueAtTime 1 (time + 0.025)
       , AudioGraph.linearRampToValueAtTime 0 (time + 0.2)
       ]
     Disabled -> [ AudioGraph.value 0 ]
 
 drum : Float -> Time -> List AudioGraph.AudioParam
 drum fundamental time =
-  [ AudioGraph.valueAtTime (fundamental * 2) (time + 0.05)
-  , AudioGraph.linearRampToValueAtTime fundamental (time + 0.2)
+  [ AudioGraph.valueAtTime (fundamental * 2) (time + 0.02)
+  , AudioGraph.exponentialRampToValueAtTime fundamental (time + 0.15)
   ]
 
 graph : String -> AudioGraph.Destination -> Model -> AudioGraph
@@ -129,7 +129,7 @@ graph id output model =
   in
     [ AudioGraph.audioNode rootId output
         <| AudioGraph.gain gain
-    , AudioGraph.audioNode (id ++ "-osc1") (AudioGraph.connectTo rootId)
+    , AudioGraph.audioNode (id ++ "-osc") (AudioGraph.connectTo rootId)
         <| AudioGraph.sineWave (drum 72 model.currentTime) 0
     ]
 

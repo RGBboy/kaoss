@@ -69,13 +69,15 @@ createGraph : String -> AudioGraph.Destination -> Float -> Float -> AudioGraph
 createGraph id output g f =
   let
     rootId = id ++ "-0"
+    f1 = (frequencyRatio f |> (*) 110)
+    f2 = (f + 7 |> frequencyRatio |> (*) 110)
   in
     [ AudioGraph.audioNode rootId output
         <| AudioGraph.gain [AudioGraph.value (g * g * 0.5)]
     , AudioGraph.audioNode (id ++ "-1") (AudioGraph.connectTo rootId)
-        <| AudioGraph.squareWave (frequencyRatio f |> (*) 110) 0
+        <| AudioGraph.squareWave [AudioGraph.value f1] 0
     , AudioGraph.audioNode (id ++ "-2") (AudioGraph.connectTo rootId)
-        <| AudioGraph.squareWave (f + 7 |> frequencyRatio |> (*) 110) 4
+        <| AudioGraph.squareWave [AudioGraph.value f2] 4
     ]
 
 graph : String -> AudioGraph.Destination -> Model -> AudioGraph
