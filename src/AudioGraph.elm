@@ -5,7 +5,7 @@ module AudioGraph exposing
   , Destination
   , connectTo, output
   , AudioParam
-  , sineWave, squareWave, sawtoothWave
+  , sineWave, squareWave, sawtoothWave, triangleWave
   , gain
   , lowPassFilter, highPassFilter
   , pinkNoise
@@ -39,6 +39,7 @@ type WaveType
   = Sine
   | Square
   | Sawtooth
+  | Triangle
 
 type FilterType
   = LowPass
@@ -87,6 +88,13 @@ sawtoothWave : Float -> Float -> Node
 sawtoothWave frequency detune =
   OscillatorNode
     Sawtooth
+    (Frequency [Scalar frequency])
+    (Detune [Scalar detune])
+
+triangleWave : Float -> Float -> Node
+triangleWave frequency detune =
+  OscillatorNode
+    Triangle
     (Frequency [Scalar frequency])
     (Detune [Scalar detune])
 
@@ -177,6 +185,7 @@ encodeWaveType waveType =
     Sine -> Encode.string "sine"
     Square -> Encode.string "square"
     Sawtooth -> Encode.string "sawtooth"
+    Triangle -> Encode.string "triangle"
 
 encodeFilterType : FilterType -> Encode.Value
 encodeFilterType filterType =
