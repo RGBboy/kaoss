@@ -71,11 +71,11 @@ audioGraph = identity
 audioNode : String -> Destination -> Node -> AudioNode
 audioNode = AudioNode
 
-sineWave : Float -> Float -> Node
+sineWave : List AudioParam -> Float -> Node
 sineWave frequency detune =
   OscillatorNode
     Sine
-    (Frequency [Scalar frequency])
+    (Frequency frequency)
     (Detune [Scalar detune])
 
 squareWave : Float -> Float -> Node

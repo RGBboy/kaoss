@@ -110,7 +110,12 @@ notesGraph rootId destination (id, note) graph =
 
 graph : String -> AudioGraph.Destination -> Model -> AudioGraph
 graph id output (_, notes) =
-  List.foldl (notesGraph id output) [] (Dict.toList notes)
+  let
+    gainId = id ++ "-0"
+    things = List.foldl (notesGraph id (AudioGraph.connectTo gainId)) [] (Dict.toList notes)
+  in
+    AudioGraph.audioNode gainId output (AudioGraph.gain [AudioGraph.value 0.2])
+      :: things
 
 
 
