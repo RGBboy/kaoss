@@ -10,7 +10,7 @@
     "postinstall": "elm-package install -y"
   },
   "dependencies": {
-    "virtual-audio-graph": "^0.17.3"
+    "virtual-audio-graph": "^0.19.4"
   },
   "devDependencies": {
     "elm": "^0.18.0",
