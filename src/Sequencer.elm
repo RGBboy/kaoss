@@ -10,6 +10,7 @@ module Sequencer exposing
 
 import AudioGraph exposing (AudioGraph)
 import Color exposing (Color)
+import Drum
 import Element as El exposing (Element)
 import Element.Attributes as A
 import Element.Events as E
@@ -104,35 +105,17 @@ subscriptions input model =
 
 -- GRAPH
 
-buttonToGain : Time -> Button -> List AudioGraph.AudioParam
-buttonToGain time button =
+mapButton : a -> a -> Button -> a
+mapButton on off button =
   case button of
-    Enabled ->
-      [ AudioGraph.valueAtTime 0 (time + 0.02)
-      , AudioGraph.linearRampToValueAtTime 1 (time + 0.025)
-      , AudioGraph.linearRampToValueAtTime 0 (time + 0.2)
-      ]
-    Disabled -> [ AudioGraph.value 0 ]
-
-drum : Float -> Time -> List AudioGraph.AudioParam
-drum fundamental time =
-  [ AudioGraph.valueAtTime (fundamental * 2) (time + 0.02)
-  , AudioGraph.exponentialRampToValueAtTime fundamental (time + 0.15)
-  ]
+    Enabled -> on
+    Disabled -> off
 
 graph : String -> AudioGraph.Destination -> Model -> AudioGraph
 graph id output model =
-  let
-    rootId = id ++ "-0"
-    gain = Array.get model.playing model.sequence
-      |> Maybe.map (buttonToGain model.currentTime)
-      |> Maybe.withDefault [ AudioGraph.value 0 ]
-  in
-    [ AudioGraph.audioNode rootId output
-        <| AudioGraph.gain gain
-    , AudioGraph.audioNode (id ++ "-osc") (AudioGraph.connectTo rootId)
-        <| AudioGraph.sineWave (drum 72 model.currentTime) 0
-    ]
+  Array.get model.playing model.sequence
+    |> Maybe.map (mapButton (Drum.kick808 72 id output model.currentTime) AudioGraph.none)
+    |> Maybe.withDefault AudioGraph.none
 
 
 
