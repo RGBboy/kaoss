@@ -11,9 +11,10 @@ import ADSR
 import AudioGraph exposing (AudioGraph)
 import Color exposing (Color)
 import Dict exposing (Dict)
+import Element as El exposing (Element)
+import Element.Attributes as A
+import Element.Events as E
 import Json.Decode as Decode exposing (Decoder)
-import Html as H exposing (Html)
-import Html.Attributes as A
 import Time exposing (Time)
 import TouchGroup
 
@@ -121,7 +122,7 @@ graph id output (_, notes) =
 
 -- VIEW
 
-itemView : (String, Note) -> Html Msg
+itemView : (String, Note) -> Element () variation Msg
 itemView (key, (state, _, _)) =
   let
     color =
@@ -129,26 +130,23 @@ itemView (key, (state, _, _)) =
         Active -> "#999999"
         Inactive -> "#666666"
   in
-    TouchGroup.item key
-      [ A.style
+    El.button ()
+      [ TouchGroup.key key |> A.toAttr
+      , A.width A.fill
+      , A.height (12.5 |> A.percent)
+      , A.inlineStyle
           [ ("backgroundColor", color)
-          , ("box-sizing", "border-box")
           , ("border", "4px solid #333333")
-          , ("width", "100%")
-          , ("height", "12.5%")
-          , ("float", "left")
           ]
       ]
-      []
+      El.empty
 
-view : Model -> Html Msg
+view : Model -> Element () variation Msg
 view (_, notes) =
-  TouchGroup.group AudioGraph.decodeTime
-    [ A.style
-        [ ("backgroundColor", "#333333")
-        , ("width", "80%")
-        , ("height", "100%")
-        , ("float", "left")
-        ]
-    ]
+  El.column ()
+    ( [ A.height A.fill
+      , A.width A.fill
+      ]
+      |> List.append (TouchGroup.onTouch AudioGraph.decodeTime |> List.map A.toAttr)
+    )
     (Dict.toList notes |> List.map itemView)

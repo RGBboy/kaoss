@@ -10,12 +10,13 @@ module Sequencer exposing
 
 import AudioGraph exposing (AudioGraph)
 import Color exposing (Color)
+import Element as El exposing (Element)
+import Element.Attributes as A
+import Element.Events as E
 import Json.Encode as Encode
-import Html as H exposing (Html)
-import Html.Attributes as A
-import Html.Events as E
 import Time exposing (Time)
 import Array exposing (Array)
+
 
 
 -- MODEL
@@ -137,7 +138,7 @@ graph id output model =
 
 -- VIEW
 
-button : Int -> Int -> Button -> Html Msg
+button : Int -> Int -> Button -> Element () variation Msg
 button playing index state =
   let
     isPlaying = index == playing
@@ -147,38 +148,21 @@ button playing index state =
         (Enabled, False) -> "#666666"
         _ -> "#999999"
   in
-    H.button
-      [ A.style
+    El.button ()
+      [ A.width A.fill
+      , A.height (12.5 |> A.percent)
+      , A.inlineStyle
           [ ("backgroundColor", color)
-          , ("box-sizing", "border-box")
           , ("border", "4px solid #333333")
-          , ("width", "100%")
-          , ("height", "12.5%")
           ]
       , E.onClick (Toggle index)
       ]
-      []
+      El.empty
 
-controls : Int -> Array Button -> Html Msg
-controls playing buttons =
-  H.div
-    [ A.style
-        [ ("width", "100%")
-        , ("height", "100%")
-        ]
-    ]
-    (Array.indexedMap (button playing) buttons |> Array.toList)
-
-
-
-view : Model -> Html Msg
+view : Model -> Element () variation Msg
 view model =
-  H.div
-    [ A.style
-        [ ("width", "20%")
-        , ("height", "100%")
-        , ("float", "left")
-        ]
+  El.column ()
+    [ A.height A.fill
+    , A.width A.fill
     ]
-    [ controls model.playing model.sequence
-    ]
+    (Array.indexedMap (button model.playing) model.sequence |> Array.toList)

@@ -1,12 +1,14 @@
 port module Main exposing (..)
 
 import AudioGraph exposing (AudioGraph)
+import Element as El
+import Element.Attributes as A
+import Element.Events as E
 import Html as H exposing (Html)
-import Html.Attributes as A
-import Html.Events as E
 import Json.Encode as Encode
 import Kaoss
 import Sequencer
+import Style exposing (StyleSheet)
 import Pad
 import Time exposing (Time)
 
@@ -148,22 +150,49 @@ subscriptions model =
 
 -- VIEW
 
+stylesheet : StyleSheet () variation
+stylesheet =
+  Style.styleSheet
+    [ Style.style () [] ]
+
 view : Model -> Html Msg
 view model =
-  case model.state of
-    Idle ->
-      H.button
-        [ E.onClick Start
-        ]
-        [ H.text "Start" ]
-    _ ->
-      H.div
-        [ A.style
-            [ ("width", "100%")
-            , ("height", "100%")
+  let
+    content =
+      case model.state of
+        Idle ->
+          El.button ()
+            [ A.center
+            , A.verticalCenter
+            , E.onClick Start
             ]
+            (El.text "Start")
+        _ ->
+          El.row ()
+            [ A.width A.fill
+            , A.height A.fill
+            ]
+            [ El.el ()
+                [ A.width (75 |> A.percent) ]
+                (Pad.view model.pad |> El.map PadMessage)
+            , El.el ()
+                [ A.width (25 |> A.percent) ]
+                (Sequencer.view model.sequencer |> El.map SequencerMessage)
+            --, Kaoss.view model.kaoss |> H.map KaossMessage
+            ]
+  in
+    El.layout stylesheet <|
+      El.column ()
+        [ A.center
+        , A.verticalCenter
+        , A.width A.fill
+        , A.height A.fill
         ]
-        [ Pad.view model.pad |> H.map PadMessage
-        --, Kaoss.view model.kaoss |> H.map KaossMessage
-        , Sequencer.view model.sequencer |> H.map SequencerMessage
+        [ El.el ()
+            [ A.width A.fill
+            , A.height A.fill
+            , A.maxWidth (A.px 320)
+            , A.maxHeight (A.px 640)
+            ]
+            content
         ]

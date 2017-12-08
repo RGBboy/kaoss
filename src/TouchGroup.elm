@@ -3,8 +3,8 @@ module TouchGroup exposing
   , init
   , Msg
   , update
-  , group
-  , item
+  , key
+  , onTouch
   )
 
 import Dict exposing (Dict)
@@ -129,7 +129,7 @@ decodeTouchList =
 decodeNode : Decoder (String, DOM.Rectangle)
 decodeNode =
   decode (,)
-    |> Decode.custom DOM.className
+    |> Decode.required "id" Decode.string
     |> Decode.custom DOM.boundingClientRect
 
 decodeNodes : Decoder (Dict String DOM.Rectangle)
@@ -166,21 +166,14 @@ onTouchCancel : Decoder a -> H.Attribute (Msg a)
 onTouchCancel decoder =
   E.onWithOptions "touchcancel" options (decodeTouchEvent decoder)
 
-item : String -> List (H.Attribute (Msg a)) -> List (Html (Msg a)) -> Html (Msg a)
-item key attributes children =
-  H.div
-    (A.class key :: attributes)
-    children
+key : String -> H.Attribute (Msg a)
+key key =
+  A.id key
 
-group : Decoder a -> List (H.Attribute (Msg a)) -> List (Html (Msg a)) -> Html (Msg a)
-group decoder attributes children =
-  let
-    newAttributes = attributes
-      |> List.append
-          [ onTouchStart decoder
-          , onTouchMove decoder
-          , onTouchEnd decoder
-          , onTouchCancel decoder
-          ]
-  in
-    H.div newAttributes children
+onTouch : Decoder a ->  List (H.Attribute (Msg a))
+onTouch decoder =
+  [ onTouchStart decoder
+  , onTouchMove decoder
+  , onTouchEnd decoder
+  , onTouchCancel decoder
+  ]
