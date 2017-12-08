@@ -9,7 +9,7 @@ module AudioGraph exposing
   , AudioParam
   , sineWave, squareWave, sawtoothWave, triangleWave
   , gain
-  , lowPassFilter, highPassFilter
+  , bandPassFilter, lowPassFilter, highPassFilter
   , pinkNoise
   , value, valueAtTime, linearRampToValueAtTime, exponentialRampToValueAtTime
   , updateGraph
@@ -44,7 +44,8 @@ type WaveType
   | Triangle
 
 type FilterType
-  = LowPass
+  = BandPass
+  | LowPass
   | HighPass
 
 type Frequency =
@@ -107,6 +108,12 @@ gain : List AudioParam -> Node
 gain params =
   GainNode (Gain params)
 
+bandPassFilter : Float -> Node
+bandPassFilter frequency =
+  BiquadFilterNode
+    BandPass
+    (Frequency [Scalar frequency])
+
 lowPassFilter : Float -> Node
 lowPassFilter frequency =
   BiquadFilterNode
@@ -116,7 +123,7 @@ lowPassFilter frequency =
 highPassFilter : Float -> Node
 highPassFilter frequency =
   BiquadFilterNode
-    LowPass
+    HighPass
     (Frequency [Scalar frequency])
 
 pinkNoise : Node
@@ -195,6 +202,7 @@ encodeWaveType waveType =
 encodeFilterType : FilterType -> Encode.Value
 encodeFilterType filterType =
   case filterType of
+    BandPass -> Encode.string "bandpass"
     LowPass -> Encode.string "lowpass"
     HighPass -> Encode.string "highpass"
 
