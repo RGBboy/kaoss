@@ -10,7 +10,6 @@ module Sequencer exposing
 
 import AudioGraph exposing (AudioGraph)
 import Color exposing (Color)
-import Drum
 import Element as El exposing (Element)
 import Element.Attributes as A
 import Element.Events as E
@@ -23,7 +22,7 @@ import Array exposing (Array)
 -- MODEL
 
 interval : Time
-interval = 500 * Time.millisecond
+interval = 250 * Time.millisecond
 
 type Button
   = Enabled
@@ -111,10 +110,10 @@ mapButton on off button =
     Enabled -> on
     Disabled -> off
 
-graph : String -> AudioGraph.Destination -> Model -> AudioGraph
-graph id output model =
+graph : (Time -> AudioGraph) -> Model -> AudioGraph
+graph play model =
   Array.get model.playing model.sequence
-    |> Maybe.map (mapButton (Drum.kick808 72 id output model.currentTime) AudioGraph.none)
+    |> Maybe.map (mapButton (play model.currentTime) AudioGraph.none)
     |> Maybe.withDefault AudioGraph.none
 
 

@@ -1,6 +1,7 @@
 port module Main exposing (..)
 
 import AudioGraph exposing (AudioGraph)
+import Drum
 import Element as El
 import Element.Attributes as A
 import Element.Events as E
@@ -41,7 +42,8 @@ type State
 type alias Model =
   { state : State
   -- , kaoss : Kaoss.Model
-  , sequencer : Sequencer.Model
+  , sequencerA : Sequencer.Model
+  , sequencerB : Sequencer.Model
   , pad : Pad.Model
   }
 
@@ -49,7 +51,8 @@ init : (Model, Cmd msg)
 init =
   ( { state = Idle
     -- , kaoss = Kaoss.init (320, 320)
-    , sequencer = Sequencer.init
+    , sequencerA = Sequencer.init
+    , sequencerB = Sequencer.init
     , pad = Pad.init
     }
   , Cmd.none
@@ -69,7 +72,8 @@ outputType kind data =
 type Msg
   = Start
   -- | KaossMessage Kaoss.Msg
-  | SequencerMessage Sequencer.Msg
+  | SequencerAMessage Sequencer.Msg
+  | SequencerBMessage Sequencer.Msg
   | PadMessage Pad.Msg
 
 update : Msg -> Model -> (Model, Cmd msg)
@@ -89,10 +93,26 @@ update message model =
     --     ( newModel
     --     , graph newModel |> AudioGraph.updateGraph |> output
     --     )
-    SequencerMessage msg ->
+    SequencerAMessage msg ->
       let
-        (sequencer, cmd) = Sequencer.update output msg model.sequencer
-        newModel = { model | sequencer = sequencer }
+        (sequencer, cmd) = Sequencer.update output msg model.sequencerA
+        newModel = { model | sequencerA = sequencer }
+        cmds =
+          if newModel == model then
+            cmd
+          else
+            Cmd.batch
+                [ graph newModel |> AudioGraph.updateGraph |> output
+                , cmd
+                ]
+      in
+        ( newModel
+        , cmds
+        )
+    SequencerBMessage msg ->
+      let
+        (sequencer, cmd) = Sequencer.update output msg model.sequencerB
+        newModel = { model | sequencerB = sequencer }
         cmds =
           if newModel == model then
             cmd
@@ -132,8 +152,9 @@ graph model =
     -- |> List.append
     --     (Kaoss.graph "kaoss" (AudioGraph.connectTo "0") model.kaoss)
   |> List.append
-      (Sequencer.graph "sequencer" (AudioGraph.connectTo "0") model.sequencer)
-
+      (Sequencer.graph (Drum.kick808 72 "seq-a" (AudioGraph.connectTo "0")) model.sequencerA)
+  |> List.append
+      (Sequencer.graph (Drum.hihat808 40 "seq-b" (AudioGraph.connectTo "0")) model.sequencerB)
 
 
 -- SUBSCRIPTIONS
@@ -144,7 +165,10 @@ subscriptions model =
     Idle ->
       Sub.none
     Playing ->
-      Sub.map SequencerMessage (Sequencer.subscriptions input model.sequencer)
+      Sub.batch
+        [ Sub.map SequencerAMessage (Sequencer.subscriptions input model.sequencerA)
+        , Sub.map SequencerBMessage (Sequencer.subscriptions input model.sequencerB)
+        ]
 
 
 
@@ -173,11 +197,14 @@ view model =
             , A.height A.fill
             ]
             [ El.el ()
-                [ A.width (75 |> A.percent) ]
+                [ A.width (50 |> A.percent) ]
                 (Pad.view model.pad |> El.map PadMessage)
             , El.el ()
                 [ A.width (25 |> A.percent) ]
-                (Sequencer.view model.sequencer |> El.map SequencerMessage)
+                (Sequencer.view model.sequencerA |> El.map SequencerAMessage)
+            , El.el ()
+                [ A.width (25 |> A.percent) ]
+                (Sequencer.view model.sequencerB |> El.map SequencerBMessage)
             --, Kaoss.view model.kaoss |> H.map KaossMessage
             ]
   in
@@ -191,7 +218,7 @@ view model =
         [ El.el ()
             [ A.width A.fill
             , A.height A.fill
-            , A.maxWidth (A.px 320)
+            , A.maxWidth (A.px 480)
             , A.maxHeight (A.px 640)
             ]
             content
