@@ -1,6 +1,7 @@
 module AudioGraph exposing
   ( AudioGraph
   , audioGraph
+  , none
   , AudioNode
   , audioNode
   , Destination
@@ -67,6 +68,9 @@ type AudioParam
 
 audioGraph : List AudioNode -> AudioGraph
 audioGraph = identity
+
+none : AudioGraph
+none = []
 
 audioNode : String -> Destination -> Node -> AudioNode
 audioNode = AudioNode
