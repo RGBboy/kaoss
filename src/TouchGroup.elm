@@ -129,7 +129,7 @@ decodeTouchList =
 decodeNode : Decoder (String, DOM.Rectangle)
 decodeNode =
   decode (,)
-    |> Decode.required "id" Decode.string
+    |> Decode.requiredAt ["attributes", "data-key", "value"] Decode.string
     |> Decode.custom DOM.boundingClientRect
 
 decodeNodes : Decoder (Dict String DOM.Rectangle)
@@ -168,7 +168,7 @@ onTouchCancel decoder =
 
 key : String -> H.Attribute (Msg a)
 key key =
-  A.id key
+  A.attribute "data-key" key
 
 onTouch : Decoder a ->  List (H.Attribute (Msg a))
 onTouch decoder =
