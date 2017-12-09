@@ -17,7 +17,7 @@ kick808 fundamental id output time =
             [ AudioGraph.valueAtTime 0 time
             , AudioGraph.valueAtTime 0 (time + 0.02)
             , AudioGraph.linearRampToValueAtTime 1 (time + 0.025)
-            , AudioGraph.linearRampToValueAtTime 0 (time + 0.2)
+            , AudioGraph.linearRampToValueAtTime 0 (time + 0.125)
             ]
     , AudioGraph.audioNode oscId (AudioGraph.connectTo gainId)
         <| AudioGraph.sineWave
