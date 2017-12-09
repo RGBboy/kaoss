@@ -42,18 +42,18 @@ type State
 type alias Model =
   { state : State
   -- , kaoss : Kaoss.Model
-  , sequencerA : Sequencer.Model
-  , sequencerB : Sequencer.Model
+  , sequencer : Sequencer.Model
   , pad : Pad.Model
+  , graph : AudioGraph
   }
 
 init : (Model, Cmd msg)
 init =
   ( { state = Idle
     -- , kaoss = Kaoss.init (320, 320)
-    , sequencerA = Sequencer.init
-    , sequencerB = Sequencer.init
+    , sequencer = Sequencer.init 2
     , pad = Pad.init
+    , graph = AudioGraph.none
     }
   , Cmd.none
   )
@@ -72,9 +72,15 @@ outputType kind data =
 type Msg
   = Start
   -- | KaossMessage Kaoss.Msg
-  | SequencerAMessage Sequencer.Msg
-  | SequencerBMessage Sequencer.Msg
+  | SequencerMessage Sequencer.Msg
   | PadMessage Pad.Msg
+
+updateGraph : Model -> Model -> Cmd msg
+updateGraph lastModel model =
+  if (lastModel.graph == model.graph) then
+    Cmd.none
+  else
+    graph model |> AudioGraph.updateGraph |> output
 
 update : Msg -> Model -> (Model, Cmd msg)
 update message model =
@@ -93,54 +99,37 @@ update message model =
     --     ( newModel
     --     , graph newModel |> AudioGraph.updateGraph |> output
     --     )
-    SequencerAMessage msg ->
+    SequencerMessage msg ->
       let
-        (sequencer, cmd) = Sequencer.update output msg model.sequencerA
-        newModel = { model | sequencerA = sequencer }
-        cmds =
-          if newModel == model then
-            cmd
-          else
-            Cmd.batch
-                [ graph newModel |> AudioGraph.updateGraph |> output
-                , cmd
-                ]
+        (sequencer, cmd) = Sequencer.update output msg model.sequencer
+        tempModel = { model | sequencer = sequencer }
+        newModel = { tempModel | graph = graph tempModel }
       in
         ( newModel
-        , cmds
-        )
-    SequencerBMessage msg ->
-      let
-        (sequencer, cmd) = Sequencer.update output msg model.sequencerB
-        newModel = { model | sequencerB = sequencer }
-        cmds =
-          if newModel == model then
-            cmd
-          else
-            Cmd.batch
-                [ graph newModel |> AudioGraph.updateGraph |> output
-                , cmd
-                ]
-      in
-        ( newModel
-        , cmds
+        , Cmd.batch
+          [ updateGraph model newModel
+          , cmd
+          ]
         )
     PadMessage msg ->
       let
-        newModel = { model | pad = Pad.update msg model.pad }
-        cmd =
-          if newModel == model then
-            Cmd.none
-          else
-            graph newModel |> AudioGraph.updateGraph |> output
+        tempModel = { model | pad = Pad.update msg model.pad }
+        newModel = { tempModel | graph = graph tempModel }
       in
         ( newModel
-        , cmd
+        , updateGraph model newModel
         )
 
 
 
 -- GRAPH
+
+sequencerGraph : Time -> Int -> AudioGraph
+sequencerGraph time track =
+  case track of
+    0 -> Drum.kick808 72 "seq-0" (AudioGraph.connectTo "0") time
+    1 -> Drum.hihat808 40 "seq-1" (AudioGraph.connectTo "0") time
+    _ -> AudioGraph.none
 
 graph : Model -> AudioGraph
 graph model =
@@ -152,9 +141,8 @@ graph model =
     -- |> List.append
     --     (Kaoss.graph "kaoss" (AudioGraph.connectTo "0") model.kaoss)
   |> List.append
-      (Sequencer.graph (Drum.kick808 72 "seq-a" (AudioGraph.connectTo "0")) model.sequencerA)
-  |> List.append
-      (Sequencer.graph (Drum.hihat808 40 "seq-b" (AudioGraph.connectTo "0")) model.sequencerB)
+      (Sequencer.graph sequencerGraph model.sequencer)
+
 
 
 -- SUBSCRIPTIONS
@@ -166,8 +154,7 @@ subscriptions model =
       Sub.none
     Playing ->
       Sub.batch
-        [ Sub.map SequencerAMessage (Sequencer.subscriptions input model.sequencerA)
-        , Sub.map SequencerBMessage (Sequencer.subscriptions input model.sequencerB)
+        [ Sub.map SequencerMessage (Sequencer.subscriptions input model.sequencer)
         ]
 
 
@@ -197,14 +184,11 @@ view model =
             , A.height A.fill
             ]
             [ El.el ()
-                [ A.width (50 |> A.percent) ]
+                [ A.width (A.fillPortion 2) ]
                 (Pad.view model.pad |> El.map PadMessage)
             , El.el ()
-                [ A.width (25 |> A.percent) ]
-                (Sequencer.view model.sequencerA |> El.map SequencerAMessage)
-            , El.el ()
-                [ A.width (25 |> A.percent) ]
-                (Sequencer.view model.sequencerB |> El.map SequencerBMessage)
+                [ A.width (A.fillPortion 1) ]
+                (Sequencer.view model.sequencer |> El.map SequencerMessage)
             --, Kaoss.view model.kaoss |> H.map KaossMessage
             ]
   in

@@ -21,25 +21,37 @@ import Array exposing (Array)
 
 -- MODEL
 
-interval : Time
-interval = 250 * Time.millisecond
+steps : Int
+steps = 16
 
 type Button
   = Enabled
   | Disabled
 
-initButton : Button
-initButton = Enabled
+initButton : Int -> Button
+initButton index =
+  if (index % 4 == 0) then
+    Enabled
+  else
+    Disabled
+
+type alias Sequence = Array Button
+
+initSequence : Sequence
+initSequence =
+  Array.initialize steps initButton
 
 type alias Model =
-  { sequence : Array Button
+  { interval : Time
+  , tracks : Array Sequence
   , playing : Int
   , currentTime : Time
   }
 
-init : Model
-init =
-  { sequence = Array.repeat 8 initButton
+init : Int -> Model
+init tracks =
+  { interval = Time.minute / (100 * 4)
+  , tracks = Array.repeat tracks initSequence
   , playing = 0
   , currentTime = 0
   }
@@ -49,9 +61,16 @@ init =
 -- UPDATE
 
 type Msg
-  = Toggle Int
+  = Toggle Int Int
   | Tick Time
   | CurrentTime Time
+
+updateArray : (Maybe a -> Maybe a) -> Int -> Array a -> Array a
+updateArray update index array =
+  Array.get index array
+    |> update
+    |> Maybe.map (\a -> Array.set index a array)
+    |> Maybe.withDefault array
 
 toggleButton : Button -> Button
 toggleButton button =
@@ -59,18 +78,21 @@ toggleButton button =
     Enabled -> Disabled
     Disabled -> Enabled
 
-updateButton : Int -> Model -> Button -> Model
-updateButton index model button =
-  { model | sequence = Array.set index button model.sequence }
+toggleButtonInSequence : Int -> Sequence -> Sequence
+toggleButtonInSequence index sequence =
+  updateArray (Maybe.map toggleButton) index sequence
+
+toggleButtonInTrack : Int -> Int -> Array Sequence -> Array Sequence
+toggleButtonInTrack track index tracks =
+  updateArray (Maybe.map <| toggleButtonInSequence index) track tracks
 
 update : (Encode.Value -> Cmd msg) -> Msg -> Model -> (Model, Cmd msg)
 update output message model =
   case message of
-    Toggle index ->
-      ( Array.get index model.sequence
-          |> Maybe.map toggleButton
-          |> Maybe.map (updateButton index model)
-          |> Maybe.withDefault model
+    Toggle track index ->
+      ( { model
+        | tracks = toggleButtonInTrack track index model.tracks
+        }
       , Cmd.none
       )
     Tick _ ->
@@ -79,9 +101,9 @@ update output message model =
       )
     CurrentTime time ->
       ( { model
-        | playing = time / (Time.inSeconds interval)
+        | playing = time / (Time.inSeconds model.interval)
             |> round
-            |> flip (%) (Array.length model.sequence)
+            |> flip (%) steps
         , currentTime = time
         }
       , Cmd.none
@@ -95,10 +117,9 @@ subscriptions : ((Time -> Msg) -> Sub Msg) -> Model -> Sub Msg
 subscriptions input model =
   -- will need to make this more accurate to account for drift
   Sub.batch
-    [ Time.every interval Tick
+    [ Time.every model.interval Tick
     , input CurrentTime
     ]
-
 
 
 
@@ -110,18 +131,24 @@ mapButton on off button =
     Enabled -> on
     Disabled -> off
 
-graph : (Time -> AudioGraph) -> Model -> AudioGraph
-graph play model =
-  Array.get model.playing model.sequence
-    |> Maybe.map (mapButton (play model.currentTime) AudioGraph.none)
+graphSequence : (Int -> AudioGraph) -> Int -> Int -> Sequence -> AudioGraph
+graphSequence createGraph playing track sequence =
+  Array.get playing sequence
+    |> Maybe.map (mapButton (createGraph track) AudioGraph.none)
     |> Maybe.withDefault AudioGraph.none
+
+graph : (Time -> Int -> AudioGraph) -> Model -> AudioGraph
+graph createGraph model =
+  model.tracks
+    |> Array.indexedMap (graphSequence (createGraph model.currentTime) model.playing)
+    |> Array.foldl List.append AudioGraph.none
 
 
 
 -- VIEW
 
-button : Int -> Int -> Button -> Element () variation Msg
-button playing index state =
+buttonView : Int -> Int -> Int -> Button -> Element () variation Msg
+buttonView playing track index state =
   let
     isPlaying = index == playing
     color =
@@ -132,19 +159,27 @@ button playing index state =
   in
     El.button ()
       [ A.width A.fill
-      , A.height (12.5 |> A.percent)
+      , A.height (A.fillPortion 1)
       , A.inlineStyle
           [ ("backgroundColor", color)
           , ("border", "4px solid #333333")
           ]
-      , E.onClick (Toggle index)
+      , E.onClick (Toggle track index)
       ]
       El.empty
 
-view : Model -> Element () variation Msg
-view model =
+trackView : Int -> Int -> Sequence -> Element () variation Msg
+trackView playing track sequence =
   El.column ()
     [ A.height A.fill
     , A.width A.fill
     ]
-    (Array.indexedMap (button model.playing) model.sequence |> Array.toList)
+    (Array.indexedMap (buttonView playing track) sequence |> Array.toList)
+
+view : Model -> Element () variation Msg
+view model =
+  El.row ()
+    [ A.height A.fill
+    , A.width A.fill
+    ]
+    (Array.indexedMap (trackView model.playing) model.tracks |> Array.toList)
